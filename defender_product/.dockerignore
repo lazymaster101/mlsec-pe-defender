@@ -1,0 +1,9 @@
+*
+!Dockerfile
+!requirements.txt
+!defender/
+!defender/**
+!models/rf_adv/
+!models/rf_adv/**
+!LICENSE.upstream
+**/__pycache__

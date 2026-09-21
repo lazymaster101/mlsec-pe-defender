@@ -1,0 +1,206 @@
+{
+ "note": "Probabilities cross-checked against the original NFS pickle via scikit-learn HashingVectorizer/OneHotEncoder/MaxAbsScaler and a traversal of the pickle's own tree state (max abs diff 0.0).",
+ "threshold": 0.25,
+ "cases": [
+  {
+   "kind": "file",
+   "name": "7z.exe",
+   "sha256": "344f076bb1211cb02eca9e5ed2c0ce59bcf74ccbc749ec611538fa14ecb9aad2",
+   "bytes": 468992,
+   "mode": "training",
+   "probability": 0.0,
+   "result_at_0.25": 0
+  },
+  {
+   "kind": "file",
+   "name": "7z.exe",
+   "sha256": "344f076bb1211cb02eca9e5ed2c0ce59bcf74ccbc749ec611538fa14ecb9aad2",
+   "bytes": 468992,
+   "mode": "legacy",
+   "probability": 0.62,
+   "result_at_0.25": 1
+  },
+  {
+   "kind": "file",
+   "name": "Steam.exe",
+   "sha256": "20648c9e342e49810f1b290d8d73f89fa3e68bc0a3198c3e7c0a8c843cb1cbfc",
+   "bytes": 3210016,
+   "mode": "training",
+   "probability": 0.0,
+   "result_at_0.25": 0
+  },
+  {
+   "kind": "file",
+   "name": "Steam.exe",
+   "sha256": "20648c9e342e49810f1b290d8d73f89fa3e68bc0a3198c3e7c0a8c843cb1cbfc",
+   "bytes": 3210016,
+   "mode": "legacy",
+   "probability": 0.75,
+   "result_at_0.25": 1
+  },
+  {
+   "kind": "file",
+   "name": "WinRAR.exe",
+   "sha256": "b18c9b9200e354f81882b29dc8143ec5d6f2b731cf4c7da3800e339ffb3c8827",
+   "bytes": 2276568,
+   "mode": "training",
+   "probability": 0.07,
+   "result_at_0.25": 0
+  },
+  {
+   "kind": "file",
+   "name": "WinRAR.exe",
+   "sha256": "b18c9b9200e354f81882b29dc8143ec5d6f2b731cf4c7da3800e339ffb3c8827",
+   "bytes": 2276568,
+   "mode": "legacy",
+   "probability": 0.66,
+   "result_at_0.25": 1
+  },
+  {
+   "kind": "file",
+   "name": "chrome.exe",
+   "sha256": "2ad6823e4ed4920385a098f4510975b28c24df80f1a22f677a6067d84657a5f1",
+   "bytes": 1555952,
+   "mode": "training",
+   "probability": 0.04,
+   "result_at_0.25": 0
+  },
+  {
+   "kind": "file",
+   "name": "chrome.exe",
+   "sha256": "2ad6823e4ed4920385a098f4510975b28c24df80f1a22f677a6067d84657a5f1",
+   "bytes": 1555952,
+   "mode": "legacy",
+   "probability": 0.52,
+   "result_at_0.25": 1
+  },
+  {
+   "kind": "file",
+   "name": "firefox.exe",
+   "sha256": "485670362e8a1fc4d8de2960dd20c99339c887d3ba23c3d254db324d0a39c8eb",
+   "bytes": 582688,
+   "mode": "training",
+   "probability": 0.01,
+   "result_at_0.25": 0
+  },
+  {
+   "kind": "file",
+   "name": "firefox.exe",
+   "sha256": "485670362e8a1fc4d8de2960dd20c99339c887d3ba23c3d254db324d0a39c8eb",
+   "bytes": 582688,
+   "mode": "legacy",
+   "probability": 0.42,
+   "result_at_0.25": 1
+  },
+  {
+   "kind": "file",
+   "name": "iexplore.exe",
+   "sha256": "826d59b40d332b10c06c4acb34e41c60e5213e3a5049d14a250868d2075cfc65",
+   "bytes": 817816,
+   "mode": "training",
+   "probability": 0.0,
+   "result_at_0.25": 0
+  },
+  {
+   "kind": "file",
+   "name": "iexplore.exe",
+   "sha256": "826d59b40d332b10c06c4acb34e41c60e5213e3a5049d14a250868d2075cfc65",
+   "bytes": 817816,
+   "mode": "legacy",
+   "probability": 0.51,
+   "result_at_0.25": 1
+  },
+  {
+   "kind": "file",
+   "name": "wmplayer.exe",
+   "sha256": "45a565adc2535484070ba596c9e106243a58d6dfc3bd470a88774dfffa900369",
+   "bytes": 170496,
+   "mode": "training",
+   "probability": 0.02,
+   "result_at_0.25": 0
+  },
+  {
+   "kind": "file",
+   "name": "wmplayer.exe",
+   "sha256": "45a565adc2535484070ba596c9e106243a58d6dfc3bd470a88774dfffa900369",
+   "bytes": 170496,
+   "mode": "legacy",
+   "probability": 0.39,
+   "result_at_0.25": 1
+  },
+  {
+   "kind": "attributes",
+   "name": "all_zero",
+   "mode": "training",
+   "attributes": {
+    "major_image_version": 0,
+    "minor_image_version": 0,
+    "major_linker_version": 0,
+    "minor_linker_version": 0,
+    "major_operating_system_version": 0,
+    "minor_operating_system_version": 0,
+    "major_subsystem_version": 0,
+    "minor_subsystem_version": 0,
+    "sizeof_code": 0,
+    "sizeof_headers": 0,
+    "sizeof_heap_commit": 0,
+    "virtual_size": 0,
+    "has_debug": 0,
+    "imports": 0,
+    "exports": 0,
+    "has_relocations": 0,
+    "has_resources": 0,
+    "has_signature": 0,
+    "has_tls": 0,
+    "symbols": 0,
+    "timestamp": 0,
+    "numberof_sections": 0,
+    "machine": "UNKNOWN_MACHINE",
+    "magic": "",
+    "characteristics_list": "",
+    "dll_characteristics_list": "",
+    "exports_list": "",
+    "libraries": "",
+    "functions": ""
+   },
+   "probability": 0.74
+  },
+  {
+   "kind": "attributes",
+   "name": "weird_ws",
+   "mode": "training",
+   "attributes": {
+    "major_image_version": 0,
+    "minor_image_version": 0,
+    "major_linker_version": 8,
+    "minor_linker_version": 0,
+    "major_operating_system_version": 4,
+    "minor_operating_system_version": 0,
+    "major_subsystem_version": 5,
+    "minor_subsystem_version": 2,
+    "sizeof_code": 318976,
+    "sizeof_headers": 1024,
+    "sizeof_heap_commit": 4096,
+    "virtual_size": 491520,
+    "has_debug": 0,
+    "imports": 127,
+    "exports": 0,
+    "has_relocations": 1,
+    "has_resources": 1,
+    "has_signature": 0,
+    "has_tls": 0,
+    "symbols": 0,
+    "timestamp": 1550764800,
+    "numberof_sections": 6,
+    "machine": "AMD64",
+    "magic": "PE32_PLUS",
+    "characteristics_list": "  ",
+    "dll_characteristics_list": " ",
+    "exports_list": "z",
+    "libraries": "  a  b  ",
+    "functions": " \t x \n y "
+   },
+   "probability": 0.17
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+# Never commit malware, datasets, or secrets
+dataset/quarantine/
+dataset/work/
+dataset/goodware/
+dataset/models/
+*.jsonl
+*.zip
+*.exe
+*.dll
+*.pkl
+.env
+*.key
+
+# Environments / caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+.ipynb_checkpoints/
+
+# The deployed model IS tracked (defender_product/models/rf_adv/**);
+# other exported model arrays are not.
