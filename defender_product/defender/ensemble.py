@@ -26,7 +26,7 @@ from defender.model import Model
 class Ensemble:
     def __init__(self) -> None:
         import lightgbm as lgb
-        import ember_compat  # noqa: F401  applies lief-0.17 / numpy-2 patches
+        from defender import ember_compat  # noqa: F401  applies lief-0.17 / numpy-2 patches
         import ember
         self._ext = ember.PEFeatureExtractor(2, print_feature_warning=False)
         self._ember = lgb.Booster(model_file=os.environ["DF_EMBER_MODEL"])
@@ -52,6 +52,6 @@ class Ensemble:
         return 1 if (e > self._tE or r > self._tR) else 0
 
     def info(self) -> dict:
-        return {"model": "ensemble", "members": ["ember_gbdt", "rf_adv"],
+        return {"model_name": "ensemble", "members": ["ember_gbdt", "rf_adv"],
                 "ember_threshold": self._tE, "rf_threshold": self._tR,
                 "rule": "malicious if ember>tE OR rf>tR"}

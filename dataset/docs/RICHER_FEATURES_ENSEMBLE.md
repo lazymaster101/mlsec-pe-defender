@@ -74,9 +74,21 @@ rf_adv's NFS features ignore overlay bytes, ember_gbdt is also robust to this on
 * **Still one stratum, still evadable in the limit** (SOTA_RESEARCH §0): a determined
   attacker who forges every feature wins; this is defense-in-depth, not an oracle.
 
-## 5. Status
+## 5. Status — containerized and verified
 
-Built and validated: `ember_gbdt` model, the ensemble scorer (`defender/ensemble.py`),
-and the operating point (`dataset/results/ensemble_operating_point.json`). Deployed
-container still ships the hardened `rf_adv`; **containerizing the ensemble** (dual
-pipeline + ember/lightgbm/lief/sklearn deps) is the remaining step.
+The ensemble is packaged and verified end-to-end: image **`mlsec-defender:ensemble`**
+(`defender_product/Dockerfile.ensemble`, 884 MB), serving `ember_gbdt` OR `rf_adv` over
+the same HTTP API. `docker run -m 1g`:
+
+| Check | Result |
+|---|---|
+| goodware FPR | 0/7 (incl. `wmplayer`, previously the 0.91 false positive) |
+| recent malware caught | 47/50 (94 %) on a live draw |
+| malformed input (random/truncated/empty) | all → 1 (fail-toward-detection) |
+| memory | 307 MiB (30 % of the 1 GB cap) |
+| latency | mean 173 ms, p95 920 ms, max 1.37 s (budget 5 s) |
+
+Build: `docker build -f Dockerfile.ensemble -t mlsec-defender:ensemble .`. The
+single-model `rf_adv` image (`Dockerfile`) remains for the leaner deployment; the
+ensemble is the best-of-both option. Notes: needs `libgomp1` (OpenMP for LightGBM) and
+`mmh3` (NFS runtime); the EMBER extractor runs via `defender/ember_compat.py`.
