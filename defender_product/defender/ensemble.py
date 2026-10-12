@@ -9,8 +9,8 @@ appends (NFS features ignore overlay bytes).
 Config via env:
   DF_EMBER_MODEL      path to ember_gbdt LightGBM text model
   DF_RF_DIR           path to rf_adv exported arrays (NFS runtime)
-  DF_EMBER_THRESHOLD  ember score cutoff  (default 0.0153, joint 1% FPR calibration)
-  DF_RF_THRESHOLD     rf_adv score cutoff (default 0.7156)
+  DF_EMBER_THRESHOLD  ember score cutoff  (default 0.98; FPR-safe point, native 0.83% / all 0.71%)
+  DF_RF_THRESHOLD     rf_adv score cutoff (default 0.75)
 
 Requires the ember feature extractor (see ember_compat for lief-0.17/numpy-2 patches),
 lightgbm, and lief. Fail-toward-detection: any extraction/scoring error -> malicious.
@@ -31,8 +31,8 @@ class Ensemble:
         self._ext = ember.PEFeatureExtractor(2, print_feature_warning=False)
         self._ember = lgb.Booster(model_file=os.environ["DF_EMBER_MODEL"])
         self._rf = Model(os.environ["DF_RF_DIR"], "training")
-        self._tE = float(os.environ.get("DF_EMBER_THRESHOLD", 0.0153))
-        self._tR = float(os.environ.get("DF_RF_THRESHOLD", 0.7156))
+        self._tE = float(os.environ.get("DF_EMBER_THRESHOLD", 0.98))
+        self._tR = float(os.environ.get("DF_RF_THRESHOLD", 0.75))
 
     def scores(self, bytez: bytes) -> tuple[float, float]:
         try:
