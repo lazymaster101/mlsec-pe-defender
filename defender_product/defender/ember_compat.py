@@ -17,7 +17,7 @@ import hashlib
 import numpy as np
 import lief
 from sklearn.feature_extraction import FeatureHasher
-import ember.features as _f
+from defender import ember_features as _f
 
 
 def _pe_raw_features(self, bytez):
