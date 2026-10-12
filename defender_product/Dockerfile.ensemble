@@ -1,7 +1,7 @@
 # Diversified-ensemble defender: ember_gbdt (EMBER-2381) OR rf_adv (NFS).
 # Heavier than the single-model image (ships lightgbm + scikit-learn + lief + the
 # EMBER extractor) but still CPU-only and well within the 1 GB / 5 s budget.
-FROM python:3.12-slim-bookworm
+FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -26,8 +26,6 @@ RUN apt-get update \
 
 COPY requirements.ensemble.txt ./
 RUN pip install --no-cache-dir --only-binary=:all: -r requirements.ensemble.txt \
- && pip install --no-cache-dir --no-deps \
-      "https://github.com/elastic/ember/archive/refs/heads/master.tar.gz" \
  && groupadd -r defender \
  && useradd --no-log-init -r -g defender -u 10001 defender
 
