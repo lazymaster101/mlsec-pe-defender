@@ -26,9 +26,9 @@ from defender.model import Model
 class Ensemble:
     def __init__(self) -> None:
         import lightgbm as lgb
-        from defender import ember_compat  # noqa: F401  applies lief-0.17 / numpy-2 patches
-        import ember
-        self._ext = ember.PEFeatureExtractor(2, print_feature_warning=False)
+        from defender import ember_features  # vendored EMBER PEFeatureExtractor (no ember pkg)
+        from defender import ember_compat  # noqa: F401  patches it for lief-0.17 / numpy-2
+        self._ext = ember_features.PEFeatureExtractor(2, print_feature_warning=False)
         self._ember = lgb.Booster(model_file=os.environ["DF_EMBER_MODEL"])
         self._rf = Model(os.environ["DF_RF_DIR"], "training")
         # Logistic-stack fusion of the two model scores (beats a crude OR by ~7 pts
