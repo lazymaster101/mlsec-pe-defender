@@ -74,21 +74,38 @@ rf_adv's NFS features ignore overlay bytes, ember_gbdt is also robust to this on
 * **Still one stratum, still evadable in the limit** (SOTA_RESEARCH §0): a determined
   attacker who forges every feature wins; this is defense-in-depth, not an oracle.
 
-## 5. Status — containerized and verified
+## 5. FPR-safety retune (win-critical correction, 2026-10-12)
 
-The ensemble is packaged and verified end-to-end: image **`mlsec-defender:ensemble`**
-(`defender_product/Dockerfile.ensemble`, 884 MB), serving `ember_gbdt` OR `rf_adv` over
-the same HTTP API. `docker run -m 1g`:
+The §3 operating point (tE=0.0153, tR=0.7156) was calibrated on an 807-file benign set
+that was **93 % managed NuGet DLLs** (which score ~0). Re-measured on the **full ~5.6k
+corpus weighted to native binaries** (the realistic grader benign), that point gives:
 
-| Check | Result |
-|---|---|
-| goodware FPR | 0/7 (incl. `wmplayer`, previously the 0.91 false positive) |
-| recent malware caught | 47/50 (94 %) on a live draw |
-| malformed input (random/truncated/empty) | all → 1 (fail-toward-detection) |
-| memory | 307 MiB (30 % of the 1 GB cap) |
-| latency | mean 173 ms, p95 920 ms, max 1.37 s (budget 5 s) |
+| | FPR all | FPR native | recent TPR |
+|---|---|---|---|
+| tE=0.0153, tR=0.7156 (old) | **1.61 %** | **3.79 %** | 90.5 % |
 
-Build: `docker build -f Dockerfile.ensemble -t mlsec-defender:ensemble .`. The
-single-model `rf_adv` image (`Dockerfile`) remains for the leaner deployment; the
-ensemble is the best-of-both option. Notes: needs `libgomp1` (OpenMP for LightGBM) and
-`mmh3` (NFS runtime); the EMBER extractor runs via `defender/ember_compat.py`.
+Both exceed the 1 % budget — it would likely be **disqualified**. The 90.5 % was an
+illusion of an unsafe threshold. Re-tuned on the full native-weighted corpus (grid over
+the OR-rule, FPR measured on native goodware with margin):
+
+| native-FPR budget | tE, tR | FPR all / native | recent TPR |
+|---|---|---|---|
+| ≤0.5 % | 0.82, 0.83 | 0.61 % / 0.47 % | 68.8 % |
+| **≤0.7 % (shipped)** | **0.98, 0.75** | **0.71 % / 0.83 %** | **76.0 %** |
+| ≤1.0 % | 0.45, 0.75 | 0.79 % / 1.07 % | 82.0 % |
+
+**Shipped: tE=0.98, tR=0.75** — FPR comfortably under budget on both native (0.83 %) and
+overall (0.71 %), recent TPR 76 %. rf_adv (recent + hardened) carries recent detection;
+ember fires as a high-confidence booster. The ≤1.0 % point (82 %) was rejected: 1.07 %
+native FPR on our corpus leaves no disqualification margin.
+
+## 6. Status — container
+
+Image **`mlsec-defender:ensemble`** (`Dockerfile.ensemble`, ~884 MB) serves `ember_gbdt`
+OR `rf_adv` over the same HTTP API; needs `libgomp1` (OpenMP for LightGBM) and `mmh3`
+(NFS runtime); EMBER extractor via `defender/ember_compat.py`. Verified in-process at the
+shipped thresholds: **0/7 native goodware FP, ~80 % malware on a 40-sample draw**. The
+container was previously built + verified end-to-end (0/7 goodware, malformed→1, 307 MiB,
+p95 920 ms); it needs **one rebuild** to bake the retuned thresholds (`docker build -f
+Dockerfile.ensemble -t mlsec-defender:ensemble .`). The leaner single-model `rf_adv`
+image (`Dockerfile`) remains as the alternative.
