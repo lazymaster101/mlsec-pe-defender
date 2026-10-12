@@ -1,8 +1,6 @@
 numpy==2.2.6
 scipy==1.18.1
 scikit-learn==1.9.1
-pandas==3.0.6
-tqdm==4.70.1
 lightgbm==4.7.0
 lief==0.17.0
 pyzipper
