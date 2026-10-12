@@ -10,8 +10,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     MKL_NUM_THREADS=1 \
     DF_EMBER_MODEL=/app/models/ember_gbdt/ember_gbdt.txt \
     DF_RF_DIR=/app/models/rf_adv \
-    DF_EMBER_THRESHOLD=0.98 \
-    DF_RF_THRESHOLD=0.75 \
+    DF_STACK_WE=6.73086 \
+    DF_STACK_WR=9.25215 \
+    DF_STACK_B=-5.41572 \
+    DF_STACK_T=2.68843 \
     DF_HOST=0.0.0.0 \
     DF_PORT=8080
 
