@@ -1,106 +1,193 @@
-# MLSEC PE Defender — retrained & adversarially hardened
+# MalArena MalConv Defender
 
-A self-contained Windows PE malware classifier served over HTTP in a Docker
-container, built for the MLSEC "defender's challenge" (goals: FPR ≤ 1 %, TPR ≥ 95 %,
-≤ 1 GB RAM, ≤ 5 s/sample). It takes the supplied *Need-For-Speed* (NFS) random-forest
-feature space, **retrains** it on a temporally-split, drift-aware dataset, and
-**adversarially hardens** it against functionality-preserving evasion.
+A Windows PE malware classifier served over HTTP from a Docker container. Send it the
+bytes of a file; it answers `{"result": 0}` (benign) or `{"result": 1}` (malware).
 
-The runtime ships no scikit-learn and never unpickles anything: the forest is exported
-to plain `.npy` arrays that are memory-mapped at startup.
+```
+.
+├── defender/        Docker build context: HTTP server, model code, weights, eval scripts
+├── train/           training script (not shipped in the image)
+└── trainedModel/    checkpoints and metrics written by training
+```
 
-## Results (honest)
+## The model
 
-Measured on held-out data; full method, confidence intervals, and limits in
-[`dataset/docs/COMPARISON_REPORT.md`](dataset/docs/COMPARISON_REPORT.md).
+The defender uses **MalConv**, a byte-level convolutional neural network that reads the
+raw file with no hand-built features and no PE parsing. It runs on CPU with PyTorch.
 
-| | Supplied | `rf_augmented` (clean) | **`rf_adv` (deployed)** |
-|---|---|---|---|
-| FPR @ shipped threshold | 13 % | 1 % | **1 %** |
-| EMBER temporal TPR @ 1 % FPR | 71.2 % | 79.5 % | 76.7 % |
-| Recent-malware detection (held-out) | ~9 % | 66 % | **59 %** |
-| Combined evasion attack (held-out) | — | 7 % | **55 %** |
-| Container: RAM / p95 latency | — | — | **147 MiB / 48 ms** |
+| Stage            | Detail                                                                    |
+|------------------|---------------------------------------------------------------------------|
+| Input            | first 1 MiB of the file (`max_bytes = 1048576`), zero-padded if shorter   |
+| Embedding        | 257 symbols (bytes 0-255 + padding) x 8 dimensions                        |
+| Convolution      | two parallel `Conv1d` layers, 128 filters, kernel 500, stride 500, gated (`ReLU(a) * sigmoid(b)`) |
+| Pooling          | global max-pool over positions                                            |
+| Classifier       | Dense 128 + ReLU, then Dense 1 + sigmoid -> malware probability           |
+| Decision         | `1` if probability >= threshold (default **0.80**), else `0`              |
 
-`rf_adv` hardens the cheap realizable evasions (combined attack **7 % → 55 %**, packing
-**21 % → 76 %**) at a 2.8-point clean-TPR cost. **Honest limits, measured and stated:**
-it does *not* transfer to an untrained attack mechanism, and full feature-mimicry still
-evades ~99 %. The ≥ 95 % TPR goal is structurally out of reach in the NFS feature space
-(needs richer byte/string features). See the docs for the full story, including a
-7-dimension adversarial self-audit that caught real defects in an earlier draft.
+The weights shipped in the image are `defender/defender/models/malconv_best.pth`. They
+are baked in at build time, so after replacing that file you must rebuild the image.
+The model code is `defender/defender/models/malconv_model.py`; the training script is
+`train/train_malconv.py`.
 
-## Quick start
+## Prerequisites
+
+- Docker
+- For the evaluation scripts (run on the host, not in the container): Python 3 with
+  `requests`, `tqdm` and `numpy`
 
 ```bash
-cd defender_product
-docker build -t mlsec-defender .
-docker run --rm -m 1g -p 8080:8080 mlsec-defender
+pip install requests tqdm numpy
 ```
+
+## Build and run the container
+
+### Option 1: the helper script
 
 ```bash
-curl -XPOST --data-binary @sample.exe \
-     -H "Content-Type: application/octet-stream" http://127.0.0.1:8080/
-# -> {"result": 1}   (1 = malicious)
+cd defender
+./build_and_test.sh
 ```
 
-## Layout
+This builds the image `defender_product`, starts a container named `defender_product`
+(detached, `--rm`, memory limit `1g`, host port 8080 -> container port 8080), and waits up
+to 60 s for `GET /model` to answer. It exits non-zero and prints the container logs if the
+service never comes up.
 
-```
-defender_product/     the deployable container
-  defender/           sklearn-free runtime (features, hashing, forest, HTTP server)
-  models/rf_adv/      the deployed adversarially-hardened model (.npy arrays)
-  tools/              legacy-model export + evaluation
-  tests/              sklearn-equivalence + server tests
-  Dockerfile, README.md
-dataset/
-  tools/              dataset build, training, adversarial training, evaluation
-    train_nfs_adversarial.py   adversarial training (Lucas recipe)
-    adv_transforms.py          functionality-preserving attack transforms
-    evaluate_adversarial.py    held-out robustness evaluation with CIs
-    fast_score.py              batch scorer, bit-exact to the runtime
-  docs/               COMPARISON_REPORT, THREAT_MODEL, DATASHEET, PITFALL_AUDIT
-  results/            evaluation JSONs (with confidence intervals)
-reports/              per-paper analysis writeups
-```
+> **Warning:** the script runs `docker rm -f` on any existing container with the same
+> name before starting. If a `defender_product` container is already running, it will
+> be replaced.
 
-## Reproduce
+Overrides, passed as environment variables:
 
-Training and evaluation need the datasets, which are **not** in this repo (see below).
-With them in `dataset/work/`:
+| Variable         | Default             | Meaning                                |
+|------------------|---------------------|----------------------------------------|
+| `IMAGE_NAME`     | `defender_product`  | image tag to build                     |
+| `CONTAINER_NAME` | `defender_product`  | container name                         |
+| `PORT`           | `8080`              | host port that forwards to the container |
+| `READY_TIMEOUT`  | `60`                | seconds to wait for the service        |
 
 ```bash
-# adversarial training (reproduces the deployed model)
-python dataset/tools/train_nfs_adversarial.py \
-  --train work/ember_official/train.jsonl --extra-train work/recent_train.jsonl \
-  --out models/nfs_rf_adv --max-per-class 150000 --adv-frac 0.6 --adv-mode all
-
-# held-out robustness evaluation
-python dataset/tools/evaluate_adversarial.py \
-  --models models/nfs_rf_augmented models/nfs_rf_adv --thresholds 0.756536 0.820932 \
-  --ember-test work/ember_official/test.jsonl \
-  --recent-test work/recent_test.jsonl --recent-train work/recent_train.jsonl \
-  --out results/adversarial_training.json
+PORT=8090 CONTAINER_NAME=defender_product-2 ./build_and_test.sh
 ```
 
-## What is deliberately NOT in this repo
+### Option 2: plain Docker commands
 
-This is defensive security research; the sensitive inputs are excluded on purpose:
+```bash
+cd defender
+docker build -t defender_product .
+docker run -d --rm --name defender_product -m 1g -p 8080:8080 defender_product
+```
 
-- **No malware.** The MalwareBazaar samples used for training/evaluation are not
-  redistributed. `dataset/tools/collect_malwarebazaar.py` documents how to fetch them
-  (they arrive as AES-zip archives, password `infected`, and are handled inert).
-- **No datasets.** The EMBER 2018 feature JSONLs (~tens of GB) and harvested goodware
-  are not included; EMBER is public (elastic/ember).
-- **No papers.** The 26 course papers are copyrighted and are not redistributed; the
-  audit in `dataset/docs/PITFALL_AUDIT.md` references them by citation.
-- **No secrets.** API keys are read from the environment (e.g. `VT_API_KEY`), never
-  committed.
+### Stop, logs, and tuning
 
-Only the deployed `rf_adv` model is included so the container builds out of the box.
+```bash
+docker logs -f defender_product     # follow server logs
+docker stop defender_product        # --rm removes the container on stop
+```
 
-## Ethics & scope
+The server reads three environment variables, so a different threshold needs no rebuild.
+Use plain `docker run` for this, because the helper script does not pass them:
 
-The malware-collection and adversarial-example tooling here is dual-use and provided
-for **defensive** research and coursework: measuring and hardening a detector's
-robustness. It handles malware only as password-protected archives and never executes
-or writes decrypted samples to disk.
+```bash
+docker run -d --rm --name defender_product -m 1g -p 8080:8080 \
+    -e DF_MALCONV_THRESH=0.90 defender_product
+```
+
+| Variable               | Default                    | Meaning                                              |
+|------------------------|----------------------------|------------------------------------------------------|
+| `DF_MALCONV_THRESH`    | `0.80`                     | flag as malware when probability >= this value       |
+| `DF_MALCONV_MAX_BYTES` | `1048576`                  | bytes read from each file (truncate / zero-pad)      |
+| `DF_MALCONV_WEIGHTS`   | `models/malconv_best.pth`  | weights path; relative paths resolve inside `defender/defender/` |
+
+## API
+
+| Method | Path     | Request                                                | Response                                    |
+|--------|----------|--------------------------------------------------------|---------------------------------------------|
+| POST   | `/`      | file bytes, `Content-Type: application/octet-stream`   | `{"result": 0}` or `{"result": 1}`          |
+| GET    | `/model` | none                                                   | `{"name", "max_bytes", "threshold", "device"}` |
+
+The `Content-Type` header must be exactly `application/octet-stream`, or the server
+answers `400`.
+
+```bash
+curl -s http://127.0.0.1:8080/model
+
+curl -s -X POST -H "Content-Type: application/octet-stream" \
+     --data-binary @/path/to/sample.exe http://127.0.0.1:8080/
+```
+
+## Measure accuracy, precision, recall, F1 and FPR
+
+`build_and_test.sh` only builds, starts and health-checks the container. The metrics come
+from the evaluation harness in `defender/test/`, which sends your goodware and malware
+files to the running container and compares the answers with the known labels.
+
+Run it from the `defender/` directory:
+
+```bash
+cd defender
+python3 -m test -m /path/to/malware -b /path/to/goodware
+```
+
+| Flag          | Default                  | Meaning                                                      |
+|---------------|--------------------------|--------------------------------------------------------------|
+| `-m`          | required                 | malware samples: a folder, `.zip`, `.tar`, `.tar.gz`/`.tgz`, or `.tar.bz2` |
+| `-b`          | required                 | goodware samples, same formats                               |
+| `--url`       | `http://127.0.0.1:8080/` | address of the running container                             |
+| `--stopafter` | `5000`                   | maximum files tested **per class**                           |
+| `--max`       | `2097152` (2 MiB)        | skip files larger than this                                  |
+| `--timeout`   | `5`                      | per-request timeout in seconds                               |
+| `--out-dir`   | the `-b` folder          | where result files are written                               |
+
+Malware is the positive class. It prints a confusion matrix and the metrics:
+
+```
+Confusion matrix:
+  TP=... TN=... FP=... FN=...
+  Accuracy:  0.xxxx
+  Precision: 0.xxxx
+  Recall:    0.xxxx      (this is the true positive rate, TPR)
+  F1:        0.xxxx
+```
+
+and writes four files to `--out-dir`:
+
+| File           | Contents                                                                 |
+|----------------|--------------------------------------------------------------------------|
+| `summary.json` | all metrics, plus `fp` (= **FPR**), `fn` (= false negative rate), `errors`, `avg_time`, `max_time` |
+| `fps.txt`      | goodware files flagged as malware                                        |
+| `fns.txt`      | malware files that were missed                                           |
+| `errors.txt`   | requests that failed or timed out, with the error message                |
+
+Things that affect the numbers:
+
+- Only files that start with the `MZ` header and are at most `--max` bytes are tested;
+  everything else is silently skipped. Folders are **not** searched recursively.
+- A request that errors or times out is scored as benign (`0`), so on malware it counts
+  as a false negative. Check `errors.txt` if recall looks low.
+- By default the result files are written **into your goodware folder**; pass `--out-dir`
+  to keep that folder clean.
+- Malware is tested first, then goodware.
+
+### Scan files without labels
+
+To get a verdict per file and a CSV, without computing metrics:
+
+```bash
+cd defender
+python3 tools/batch_scan.py --dir /path/to/files --recursive --pattern "*.exe" \
+        --workers 8 --out-csv scan_results.csv
+```
+
+The CSV columns are `path,result,status,error`. Options: `--url`, `--timeout`,
+`--max-files`, `--print-jsonl`.
+
+## Troubleshooting
+
+- **`port is already allocated`**: something already uses 8080. Pick another port
+  (`PORT=8090 ./build_and_test.sh`, or `-p 8090:8080`) and pass
+  `--url http://127.0.0.1:8090/` to the evaluation scripts. Use `docker ps` to see what
+  holds 8080.
+- **`python3 -m test` does something unexpected or fails on imports**: run it from inside
+  `defender/`. The harness is a local package named `test`, which only shadows Python's
+  own `test` package when `defender/` is the current directory.
