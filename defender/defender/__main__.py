@@ -7,7 +7,7 @@ if __name__ == "__main__":
     # retrive config values from environment variables
     # MalConv-specific config
     # Default path under the defender package
-    malconv_weights = envparse.env("DF_MALCONV_WEIGHTS", cast=str, default="models/malconv_best.pth")
+    malconv_weights = envparse.env("DF_MALCONV_WEIGHTS", cast=str, default="models/malconv_model_best.pt")
     malconv_threshold = envparse.env("DF_MALCONV_THRESH", cast=float, default=0.80)
     malconv_max_bytes = envparse.env("DF_MALCONV_MAX_BYTES", cast=int, default=1048576)
     # No Ember/NFS config needed
