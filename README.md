@@ -1,4 +1,4 @@
-# MalArena MalConv Defender
+# MLSec PE Defender
 
 A Windows PE malware classifier served over HTTP from a Docker container. Send it the
 bytes of a file; it answers `{"result": 0}` (benign) or `{"result": 1}` (malware).
