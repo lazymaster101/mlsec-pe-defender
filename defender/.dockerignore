@@ -1,0 +1,50 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+
+# Version control
+.git/
+.gitignore
+
+# Editors/OS
+.vscode/
+.idea/
+.DS_Store
+
+# Logs and docs (not needed at runtime)
+*.log
+*.md
+FAQ.md
+errors.txt
+fns.txt
+fps.txt
+
+# Tests (exclude from image)
+test/
+defender/test/
+
+# Unused models and artifacts (keep MalConv only)
+defender/models/ember_model.py
+defender/models/ember_model.txt.gz
+defender/models/nfs_*
+defender/models/pe_*
+defender/models/nfs_behemot/
+defender/models/nfs_full.zip
+defender/models/*.pickle
+
+# Large archives not needed at runtime
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.bz2
+
+# Note: We intentionally DO NOT ignore:
+# - defender/models/malconv_model.py
+# - defender/models/malconv_best.pth
+# so the service can load the MalConv model.

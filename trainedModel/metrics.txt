@@ -1,0 +1,11 @@
+Threshold: 0.5
+TP: 194
+TN: 0
+FP: 56
+FN: 0
+Accuracy: 0.7760
+Precision: 0.7760
+Recall: 1.0000
+F1: 0.8739
+FPR: 1.0000
+FNR: 0.0000
