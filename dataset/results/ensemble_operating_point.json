@@ -1,0 +1,17 @@
+{
+  "members": [
+    "ember_gbdt",
+    "rf_adv"
+  ],
+  "rule": "malicious if ember>tE OR rf>tR",
+  "ember_threshold": 0.98,
+  "rf_threshold": 0.75,
+  "calibrated_on": "full goodware corpus (~5.6k, native-weighted) + 7 course EXEs; native-FPR-safe with margin",
+  "results": {
+    "recent_detect": 0.76,
+    "fpr_all": 0.0071,
+    "fpr_native": 0.0083,
+    "fpr_managed": 0.0066,
+    "note": "FPR-safety hardening (2026-10-12): prior tE=0.0153 gave native FPR 3.79% (disqualifying); re-tuned on full corpus. Curve: native-FPR 0.5%/0.7%/1.0% -> recent TPR 69/76/82%. Shipped balanced 0.98/0.75."
+  }
+}

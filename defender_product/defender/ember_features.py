@@ -537,7 +537,7 @@ class PEFeatureExtractor(object):
         lief_errors = (lief.bad_format, lief.bad_file, lief.pe_error, lief.parser_error, lief.read_out_of_bound,
                        RuntimeError)
         try:
-            lief_binary = lief.PE.parse(list(bytez))
+            lief_binary = lief.PE.parse(bytes(bytez))
         except lief_errors as e:
             print("lief error: ", str(e))
             lief_binary = None

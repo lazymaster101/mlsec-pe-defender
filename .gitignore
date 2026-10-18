@@ -1,0 +1,17 @@
+# Never commit credentials or collected samples.
+.vt_key
+*.apikey
+dataset/raw/
+dataset/quarantine/
+dataset/goodware/
+dataset/work/
+dataset/models/
+# Local environments / caches
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+# Large superseded models (kept locally; regenerate with defender_product/tools)
+defender_product/models/nfs/
+defender_product/models/rf_augmented/
+defender_product/models/rf_tuned/

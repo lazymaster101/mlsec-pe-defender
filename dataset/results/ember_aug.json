@@ -1,0 +1,48 @@
+{
+  "label": "ember_aug",
+  "n": 50000,
+  "n_benign": 25000,
+  "n_malicious": 25000,
+  "models": {
+    "rf_augmented": {
+      "n_benign": 25000,
+      "n_malicious": 25000,
+      "roc_auc": 0.9765073807999999,
+      "pr_auc": 0.9794652577687837,
+      "tpr_at_fpr_0.001": 0.60008,
+      "threshold_at_fpr_0.001": 0.9174047619047618,
+      "actual_fpr_0.001": 0.00092,
+      "tpr_at_fpr_0.01": 0.7992,
+      "threshold_at_fpr_0.01": 0.7494285714285713,
+      "actual_fpr_0.01": 0.01,
+      "tpr_at_fpr_0.05": 0.89196,
+      "threshold_at_fpr_0.05": 0.555063492063492,
+      "actual_fpr_0.05": 0.04992,
+      "fpr_at_0.25": 0.23692,
+      "tpr_at_0.25": 0.97168,
+      "fpr_at_0.5": 0.069,
+      "tpr_at_0.5": 0.9168,
+      "seconds_total": 94.4,
+      "ms_per_sample": 1.888,
+      "unparseable": 0,
+      "model_dir": "dataset/models/nfs_rf_augmented",
+      "n_nodes": 1634478,
+      "tpr_at_fpr_0.01_ci95": [
+        0.7942,
+        0.8041
+      ],
+      "slices": {
+        "2018-11": {
+          "n": 12445,
+          "detected": 10379,
+          "tpr": 0.834
+        },
+        "2018-12": {
+          "n": 12555,
+          "detected": 9601,
+          "tpr": 0.7647
+        }
+      }
+    }
+  }
+}

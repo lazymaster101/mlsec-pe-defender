@@ -1,0 +1,16 @@
+*
+!Dockerfile
+!Dockerfile.ensemble
+!requirements.txt
+!requirements.ensemble.txt
+!defender/
+!defender/**
+!models/rf_adv/
+!models/rf_adv/**
+!models/ember_gbdt/
+!models/ember_gbdt/**
+!models/ember_ft/
+!models/ember_ft/**
+!models/fusion.json
+!LICENSE.upstream
+**/__pycache__

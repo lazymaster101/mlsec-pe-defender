@@ -1,0 +1,74 @@
+{
+  "threshold": 0.7565359549347793,
+  "model": "rf_augmented",
+  "sets": {
+    "recent_test (held-out, 2020-26)": {
+      "A additive-imports": {
+        "n": 433,
+        "detect_before": 0.6628175519630485,
+        "detect_after": 0.22632794457274827,
+        "evasion_of_caught": 0.6585365853658537,
+        "mean_score_before": 0.7846572492757945,
+        "mean_score_after": 0.5534125090190953
+      },
+      "B header-metadata": {
+        "n": 433,
+        "detect_before": 0.6628175519630485,
+        "detect_after": 0.279445727482679,
+        "evasion_of_caught": 0.5888501742160279,
+        "mean_score_before": 0.7846572492757945,
+        "mean_score_after": 0.6218589035022719
+      },
+      "C A+B combined": {
+        "n": 433,
+        "detect_before": 0.6628175519630485,
+        "detect_after": 0.07159353348729793,
+        "evasion_of_caught": 0.8989547038327527,
+        "mean_score_before": 0.7846572492757945,
+        "mean_score_after": 0.45350987354618416
+      },
+      "D full-mimicry (upper bound)": {
+        "n": 433,
+        "detect_before": 0.6628175519630485,
+        "detect_after": 0.009237875288683603,
+        "evasion_of_caught": 0.9895470383275261,
+        "mean_score_before": 0.7846572492757945,
+        "mean_score_after": 0.2073726769131513
+      }
+    },
+    "recent_full (2020-26)": {
+      "A additive-imports": {
+        "n": 1454,
+        "detect_before": 0.7524071526822559,
+        "detect_after": 0.2627235213204952,
+        "evasion_of_caught": 0.6508226691042047,
+        "mean_score_before": 0.8272012702439987,
+        "mean_score_after": 0.5720685806055055
+      },
+      "B header-metadata": {
+        "n": 1454,
+        "detect_before": 0.7524071526822559,
+        "detect_after": 0.2840440165061898,
+        "evasion_of_caught": 0.6243144424131627,
+        "mean_score_before": 0.8272012702439987,
+        "mean_score_after": 0.6477724970473075
+      },
+      "C A+B combined": {
+        "n": 1454,
+        "detect_before": 0.7524071526822559,
+        "detect_after": 0.08940852819807428,
+        "evasion_of_caught": 0.8811700182815356,
+        "mean_score_before": 0.8272012702439987,
+        "mean_score_after": 0.4647159713306504
+      },
+      "D full-mimicry (upper bound)": {
+        "n": 1454,
+        "detect_before": 0.7524071526822559,
+        "detect_after": 0.008940852819807428,
+        "evasion_of_caught": 0.9890310786106032,
+        "mean_score_before": 0.8272012702439987,
+        "mean_score_after": 0.206744894402433
+      }
+    }
+  }
+}
