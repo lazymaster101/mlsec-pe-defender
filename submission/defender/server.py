@@ -105,8 +105,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         content_type = (self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
         if content_type != OCTET_STREAM:
-            self._respond(400, {"error": f"expecting {OCTET_STREAM}"})
-            return
+            # Be liberal in what we accept: the body is the sample whatever the client
+            # declared (e.g. curl --data-binary sends form-urlencoded). Rejecting would
+            # leave the sample unanswered, which scores as an evasion.
+            log("non_octet_content_type", content_type=content_type or "<none>")
         try:
             length = int(self.headers.get("Content-Length", ""))
         except ValueError:

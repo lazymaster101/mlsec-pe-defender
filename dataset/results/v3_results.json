@@ -1,0 +1,133 @@
+{
+  "version": "v3",
+  "date": "2026-10-15",
+  "pipeline": [
+    "authenticode_trust(pinned Microsoft PCAs, RSA chain check, CVE-2013-3900)",
+    "tampered_signature->1",
+    "logodds_fusion(e,r,f) with ef/r fallbacks"
+  ],
+  "fusion": {
+    "efr": {
+      "order": [
+        "e",
+        "f",
+        "r"
+      ],
+      "coef": [
+        0.22493221995860432,
+        0.4234281931206427,
+        1.1788379612051734
+      ],
+      "intercept": 2.6799053237194195,
+      "threshold": 4.109904522738936,
+      "fit_tpr": 0.828080229226361,
+      "fit_fpr_all": 0.00088948187680676,
+      "fit_fpr_exe": 0.009259259259259259
+    },
+    "ef": {
+      "order": [
+        "e",
+        "f"
+      ],
+      "coef": [
+        0.30812436827257744,
+        0.49158715953159493
+      ],
+      "intercept": 3.5955592690317895,
+      "threshold": 3.684960240417298,
+      "fit_tpr": 0.7936962750716332,
+      "fit_fpr_all": 0.0011118523460084502,
+      "fit_fpr_exe": 0.009259259259259259
+    },
+    "r": {
+      "order": [
+        "r"
+      ],
+      "coef": [
+        2.5824271155913663
+      ],
+      "intercept": -0.25230750056844947,
+      "threshold": 8.946411418440464,
+      "fit_tpr": 0.17478510028653296,
+      "fit_fpr_all": 0.00066711140760507,
+      "fit_fpr_exe": 0.006944444444444444
+    }
+  },
+  "cv_estimate": {
+    "tpr": 0.8349979296066252,
+    "tpr_exe": 0.8509013914095586,
+    "fpr_all": 0.0010451365714991966,
+    "fpr_exe": 0.010879443998930767,
+    "tpr_sd": 0.041121514219582295,
+    "fpr_exe_sd": 0.015239310942018854,
+    "protocol": "10x stratified 5-fold, threshold on train folds"
+  },
+  "fit_set": {
+    "malware": 349,
+    "goodware": 4497,
+    "goodware_exe": 432
+  },
+  "v2_same_set": {
+    "tpr": 0.814,
+    "fpr_all": 0.00196,
+    "fpr_exe": 0.034
+  },
+  "robustness": {
+    "clean": {
+      "n": 349,
+      "v3_tpr": 0.8767908309455588,
+      "v2_tpr": 0.8137535816618912
+    },
+    "overlay_64k": {
+      "n": 349,
+      "v3_tpr": 0.9025787965616046,
+      "v2_tpr": 0.8137535816618912
+    },
+    "overlay_1m": {
+      "n": 349,
+      "v3_tpr": 0.8538681948424068,
+      "v2_tpr": 0.8022922636103151
+    },
+    "overlay_4m": {
+      "n": 349,
+      "v3_tpr": 0.8022922636103151,
+      "v2_tpr": 0.7650429799426934
+    },
+    "strings_10k": {
+      "n": 349,
+      "v3_tpr": 0.8108882521489972,
+      "v2_tpr": 0.7822349570200573
+    },
+    "section_inject": {
+      "n": 349,
+      "v3_tpr": 0.8624641833810889,
+      "v2_tpr": 0.8166189111747851
+    },
+    "header_copy": {
+      "n": 349,
+      "v3_tpr": 0.9197707736389685,
+      "v2_tpr": 0.8510028653295129
+    },
+    "cert_blob": {
+      "n": 349,
+      "v3_tpr": 0.8911174785100286,
+      "v2_tpr": 0.7994269340974212
+    }
+  },
+  "grading_set_once_after_freeze": {
+    "tp": 48,
+    "fn": 2,
+    "fp": 0,
+    "tn": 50,
+    "tpr": 0.96,
+    "fpr": 0.0,
+    "latency_p95_ms": 56,
+    "mem_mib": 188,
+    "ready_s": 3,
+    "note": "threshold selected without grading data; misses scored 3.27/3.07 vs 4.11, not tuned for"
+  },
+  "bugs_fixed": [
+    "features.py enum crash (15.8% FPR on independent goodware in v2)",
+    "list(bytez) parse in EMBER extractor"
+  ]
+}

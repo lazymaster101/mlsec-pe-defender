@@ -3,9 +3,14 @@
 The original JSON trainer swaps the names of its DLL/API text fields and pads
 those strings. Preserve that training schema; do not 'fix' the learned columns.
 """
+import warnings
+
 import lief
 
 lief.logging.disable()
+# LIEF warns when it meets an enum value it does not know (e.g. ReadyToRun machine
+# codes); _enum_name handles those, so the warning is only log noise.
+warnings.filterwarnings('ignore', message=r'.* is not a valid ', category=RuntimeWarning)
 
 OPTIONAL_NUMERIC = (
     'major_image_version', 'minor_image_version', 'major_linker_version',
@@ -13,6 +18,26 @@ OPTIONAL_NUMERIC = (
     'minor_operating_system_version', 'major_subsystem_version',
     'minor_subsystem_version', 'sizeof_code', 'sizeof_headers', 'sizeof_heap_commit',
 )
+
+
+# .NET ReadyToRun images built for non-Windows hosts store machine = arch XOR an
+# OS marker (Apple, Linux, FreeBSD, NetBSD). lief returns those as plain ints, which
+# used to crash `.name` and -- via fail-toward-detection -- flag legitimate files.
+_R2R_OS_MARKERS = (0x4644, 0x7B79, 0x1993, 0xFD1D)
+
+
+def _enum_name(value, enum_cls=None) -> str:
+    name = getattr(value, 'name', None)
+    if isinstance(name, str):
+        return name
+    raw = int(value)
+    if enum_cls is not None:
+        for marker in _R2R_OS_MARKERS:
+            try:
+                return enum_cls(raw ^ marker).name
+            except ValueError:
+                continue
+    return f'UNKNOWN_{raw}'
 
 
 def extract(bytez: bytes, mode: str = 'training') -> dict:
@@ -32,8 +57,9 @@ def extract(bytez: bytes, mode: str = 'training') -> dict:
         has_relocations=int(pe.has_relocations), has_resources=int(pe.has_resources),
         has_signature=int(pe.has_signatures), has_tls=int(pe.has_tls),
         symbols=len(pe.symbols), timestamp=int(header.time_date_stamps),
-        numberof_sections=len(pe.sections), machine=header.machine.name,
-        magic=optional.magic.name,
+        numberof_sections=len(pe.sections),
+        machine=_enum_name(header.machine, lief.PE.Header.MACHINE_TYPES),
+        magic=_enum_name(optional.magic),
         characteristics_list=' '.join(c.name for c in header.characteristics_list),
         dll_characteristics_list=' '.join(
             name for name, mask in optional.DLL_CHARACTERISTICS.__members__.items()

@@ -1,6 +1,6 @@
-# Diversified-ensemble defender: ember_gbdt (EMBER-2381) stacked with rf_adv (NFS).
-# Heavier than the single-model image (ships lightgbm + scikit-learn + lief + the
-# EMBER extractor) but still CPU-only and well within the 1 GB / 5 s budget.
+# v3 defender: Authenticode trust/tamper layer + log-odds fusion of ember_gbdt,
+# rf_adv and ember_ft (see defender/ensemble.py). CPU-only, offline, well within the
+# 1 GB / 5 s budget.
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -10,10 +10,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     MKL_NUM_THREADS=1 \
     DF_EMBER_MODEL=/app/models/ember_gbdt/ember_gbdt.txt \
     DF_RF_DIR=/app/models/rf_adv \
-    DF_STACK_WE=6.73086 \
-    DF_STACK_WR=9.25215 \
-    DF_STACK_B=-5.41572 \
-    DF_STACK_T=1.80 \
+    DF_EMBER_FT=/app/models/ember_ft/ember_ft.txt \
+    DF_FUSION=/app/models/fusion.json \
     DF_HOST=0.0.0.0 \
     DF_PORT=8080
 
@@ -32,6 +30,8 @@ RUN pip install --no-cache-dir --only-binary=:all: -r requirements.ensemble.txt 
 COPY defender/ ./defender/
 COPY models/rf_adv ./models/rf_adv
 COPY models/ember_gbdt ./models/ember_gbdt
+COPY models/ember_ft ./models/ember_ft
+COPY models/fusion.json ./models/fusion.json
 COPY LICENSE.upstream ./LICENSE.upstream
 
 USER 10001

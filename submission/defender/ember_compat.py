@@ -22,7 +22,9 @@ from defender import ember_features as _f
 
 def _pe_raw_features(self, bytez):
     try:
-        lb = lief.PE.parse(list(bytez))
+        # bytes, not list(bytez): identical features (verified 220/220), but avoids a
+        # per-byte Python list (hundreds of MB transient on large files under 1 GiB).
+        lb = lief.PE.parse(bytes(bytez))
     except Exception:
         lb = None
     features = {"sha256": hashlib.sha256(bytez).hexdigest()}
