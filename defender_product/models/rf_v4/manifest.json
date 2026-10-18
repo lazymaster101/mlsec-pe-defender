@@ -1,0 +1,70 @@
+{
+  "format_version": 1,
+  "files": {
+    "children_left.npy": {
+      "sha256": "a05b574e7f4f203d8e12981fb6c1e4f188b18a7e408895db332c560401026fdd",
+      "bytes": 8285304,
+      "dtype": "int32",
+      "shape": [
+        2071294
+      ]
+    },
+    "children_right.npy": {
+      "sha256": "8c437374b69e283aca1a056842ae595a8d2bfa755dbe681278173ad02271641c",
+      "bytes": 8285304,
+      "dtype": "int32",
+      "shape": [
+        2071294
+      ]
+    },
+    "features.npy": {
+      "sha256": "fc762607f7b2b1abf2fbc86188dad577c20c28f8bcf6105ed234c307d1cc8fb6",
+      "bytes": 8285304,
+      "dtype": "int32",
+      "shape": [
+        2071294
+      ]
+    },
+    "probabilities.npy": {
+      "sha256": "6f42370012a0fa2657649255c26b65b7a71ecbd28c88875f090431d2d49b520c",
+      "bytes": 16570480,
+      "dtype": "float64",
+      "shape": [
+        2071294
+      ]
+    },
+    "scales.npy": {
+      "sha256": "6a5e376783eb453b0859da530c5fcf5f8bf2edec7ef1a440fa4854d75f0db5d7",
+      "bytes": 2000424,
+      "dtype": "float64",
+      "shape": [
+        250037
+      ]
+    },
+    "thresholds.npy": {
+      "sha256": "7278f3d3fa9a6ec12051462d6f55a8e2255ff8df9bbc8f2880ff079af79db1f2",
+      "bytes": 16570480,
+      "dtype": "float64",
+      "shape": [
+        2071294
+      ]
+    },
+    "tree_roots.npy": {
+      "sha256": "a89935166980a8e6fea4d8beae4fd1d0de8629f74a4cf5763b54227dd506ab6a",
+      "bytes": 528,
+      "dtype": "int32",
+      "shape": [
+        100
+      ]
+    },
+    "schema.json": {
+      "sha256": "920f4d6333e3cf05107f0f89bde0763bc10fdd9a689c95f158cc114d927cf328",
+      "bytes": 5146
+    }
+  },
+  "total_artifact_bytes": 60002970,
+  "performance_claims": {
+    "fpr_validated": false,
+    "tpr_validated": false
+  }
+}

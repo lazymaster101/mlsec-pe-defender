@@ -4,6 +4,7 @@
 dataset/raw/
 dataset/quarantine/
 dataset/goodware/
+dataset/goodware2/
 dataset/work/
 dataset/models/
 # Local environments / caches

@@ -62,8 +62,9 @@ class Ensemble:
         self._t = self._fusion["models"]["efr"]["threshold"] + self._offset
 
     # -- members -------------------------------------------------------------------
-    def _ember_members(self, bytez: bytes):
-        v = np.asarray(self._ext.feature_vector(bytez), dtype=np.float32).reshape(1, -1)
+    def _ember_members(self, bytez: bytes, pe=None):
+        raw_obj = self._ext.raw_features(bytez, pe) if pe is not None else self._ext.raw_features(bytez)
+        v = np.asarray(self._ext.process_raw_features(raw_obj), dtype=np.float32).reshape(1, -1)
         raw = float(self._ember.predict(v, raw_score=True)[0])
         e = 1.0 / (1.0 + math.exp(-raw))
         if self._ft is None:
@@ -71,14 +72,21 @@ class Ensemble:
         raw_f = raw + float(self._ft.predict(v, raw_score=True)[0])
         return e, 1.0 / (1.0 + math.exp(-raw_f))
 
-    def _rf_member(self, bytez: bytes) -> float:
-        a = nfs_features.extract(bytez, "training")
+    def _rf_member(self, bytez: bytes, pe=None) -> float:
+        a = nfs_features.extract(bytez, "training", pe=pe)
         return float(self._rf.probability(self._rf.vectorize(a)))
 
-    def _signature(self, bytez: bytes) -> tuple[bool, bool, str]:
+    def _parse(self, bytez: bytes):
+        """Parse once; every layer reuses this binary (it used to be parsed 3x, which
+        cost seconds on large files against the 4 s request budget)."""
+        try:
+            return self._lief.PE.parse(bytez)
+        except Exception:
+            return None
+
+    def _signature(self, bytez: bytes, pe=None) -> tuple[bool, bool, str]:
         """-> (microsoft_trusted, tampered, verify_flags)."""
         try:
-            pe = self._lief.PE.parse(bytez)
             if pe is None or not pe.has_signatures:
                 return False, False, "NONE"
             flags = str(pe.verify_signature()).split(".")[-1]
@@ -89,7 +97,8 @@ class Ensemble:
 
     # -- decision ------------------------------------------------------------------
     def analyze(self, bytez: bytes) -> dict:
-        trusted, tampered, flags = self._signature(bytez)
+        pe = self._parse(bytez)
+        trusted, tampered, flags = self._signature(bytez, pe)
         out = {"signature": flags, "trusted_microsoft": trusted, "tampered_signature": tampered}
         if trusted:
             out.update(verdict=0, reason="trusted_microsoft_signature")
@@ -99,11 +108,11 @@ class Ensemble:
             return out
         m = {}
         try:
-            m["e"], m["f"] = self._ember_members(bytez)
+            m["e"], m["f"] = self._ember_members(bytez, pe)
         except Exception:
             pass
         try:
-            m["r"] = self._rf_member(bytez)
+            m["r"] = self._rf_member(bytez, pe)
         except Exception:
             pass
         out.update({k: round(v, 6) for k, v in m.items()})
@@ -123,9 +132,11 @@ class Ensemble:
 
     def info(self) -> dict:
         efr = self._fusion["models"]["efr"]
-        return {"model_name": "ensemble-v3",
+        mem = self._fusion["members"]
+        version = self._fusion.get("version", "v4" if mem.get("r") == "rf_v4" else "v3")
+        return {"model_name": f"ensemble-{version}",
                 "layers": ["authenticode_trust(microsoft_pinned_pca)", "authenticode_tamper",
-                           "logodds_fusion(ember_gbdt, rf_adv, ember_ft)"],
+                           f"logodds_fusion({mem.get('e')}, {mem.get('r')}, {mem.get('f')})"],
                 "members": self._fusion["members"], "fallbacks": ["ef", "r"],
                 "fusion": {k: efr[k] for k in ("order", "coef", "intercept")},
                 "threshold": self._t, "threshold_offset": self._offset,

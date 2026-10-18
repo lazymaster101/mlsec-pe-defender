@@ -40,13 +40,15 @@ def _enum_name(value, enum_cls=None) -> str:
     return f'UNKNOWN_{raw}'
 
 
-def extract(bytez: bytes, mode: str = 'training') -> dict:
+def extract(bytez: bytes, mode: str = 'training', pe=None) -> dict:
+    """pe: optional binary already parsed by the caller (shared parse in the server)."""
     if mode not in ('training', 'legacy'):
         raise ValueError('Unknown feature mode')
     if len(bytez) < 64 or bytez[:2] != b'MZ':
         raise ValueError('Not a PE file')
-    # bytes avoids the original 2-million-element Python integer list.
-    pe = lief.PE.parse(bytez)
+    if pe is None:
+        # bytes avoids the original 2-million-element Python integer list.
+        pe = lief.PE.parse(bytez)
     if pe is None:
         raise ValueError('PE parser rejected input')
     header, optional = pe.header, pe.optional_header

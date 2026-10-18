@@ -8,6 +8,17 @@ Branch policy:
   v3: grouped-CV gain, no robustness regression, ARM64 + x86-64 container verification,
   and a single post-freeze run on the course set.
 
+## Status (2026-10-18)
+
+v4 candidate trained and reviewed: **NO SHIP**. See `dataset/docs/V4_STATUS.md`.
+- Large real gain: unsigned third-party goodware EXE FPR on a sealed 291-product holdout
+  dropped from 9.2% (v3) to 0.65% (v4); +12.9 pts grouped-CV TPR at matched FPR.
+- Blocked by a robustness regression at deployed thresholds, and by a minor leak (fixed in
+  code, retrain pending).
+- The container OOM found in review is already fixed.
+- `Dockerfile.ensemble` still serves v3. The v4 artifacts are committed as a candidate
+  (`models/rf_v4`, `models/ember_ft_v4`, `models/fusion_v4.json`).
+
 ## Layout
 
 | Path | What |

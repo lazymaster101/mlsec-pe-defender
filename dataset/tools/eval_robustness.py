@@ -21,12 +21,17 @@ PROD = ROOT / "defender_product"
 _S = {}
 
 
+VARIANTS = {
+    "v3": {"DF_EMBER_FT": "models/ember_ft/ember_ft.txt", "DF_RF_DIR": "models/rf_adv", "DF_FUSION": "models/fusion.json"},
+    "v4": {"DF_EMBER_FT": "models/ember_ft_v4/ember_ft.txt", "DF_RF_DIR": "models/rf_v4", "DF_FUSION": "models/fusion_v4.json"},
+}
+VARIANT = os.environ.get("ROBUST_VARIANT", "v3")
+
+
 def _init():
     sys.path.insert(0, str(PROD))
-    os.environ.update(DF_EMBER_MODEL=str(PROD / "models/ember_gbdt/ember_gbdt.txt"),
-                      DF_EMBER_FT=str(PROD / "models/ember_ft/ember_ft.txt"),
-                      DF_RF_DIR=str(PROD / "models/rf_adv"), DF_FUSION=str(PROD / "models/fusion.json"),
-                      OMP_NUM_THREADS="1")
+    os.environ.update(DF_EMBER_MODEL=str(PROD / "models/ember_gbdt/ember_gbdt.txt"), OMP_NUM_THREADS="1",
+                      **{k: str(PROD / v) for k, v in VARIANTS[VARIANT].items()})
     import lief
     lief.logging.disable()
     from defender.ensemble import Ensemble
@@ -127,6 +132,7 @@ def main():
     with mp.Pool(8, initializer=_init) as pool:
         rows = pool.map(work, shas, chunksize=4)
     print(f"held-out malware: {len(shas)} (recent_test minus feature-duplicates)")
+    print(f"variant under test: {VARIANT} (column 'v3 TPR' = this variant)")
     print(f"{'attack':16s} {'n':>4s} | {'v3 TPR':>7s} | {'v2 TPR':>7s} | max latency")
     out = {}
     for name in ATTACKS:
@@ -136,7 +142,7 @@ def main():
         v3 = sum(x[0] for x in ok) / len(ok); v2r = sum(x[1] for x in ok) / len(ok)
         out[name] = {"n": len(ok), "v3_tpr": v3, "v2_tpr": v2r}
         print(f"{name:16s} {len(ok):4d} | {v3:7.3f} | {v2r:7.3f} | {max(x[2] for x in ok):.2f}s")
-    json.dump(out, open(ROOT / "dataset/work/exp/robustness_v3.json", "w"), indent=2)
+    json.dump(out, open(ROOT / f"dataset/work/exp/robustness_{VARIANT}.json", "w"), indent=2)
 
 
 if __name__ == "__main__":

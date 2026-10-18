@@ -20,16 +20,63 @@ from sklearn.feature_extraction import FeatureHasher
 from defender import ember_features as _f
 
 
-def _pe_raw_features(self, bytez):
-    try:
-        # bytes, not list(bytez): identical features (verified 220/220), but avoids a
-        # per-byte Python list (hundreds of MB transient on large files under 1 GiB).
-        lb = lief.PE.parse(bytes(bytez))
-    except Exception:
-        lb = None
+_UNSET = object()
+
+
+def _pe_raw_features(self, bytez, lief_binary=_UNSET):
+    """lief_binary: a binary already parsed by the caller (None = parse failed), so the
+    server parses each file once instead of three times. Default: parse here."""
+    if lief_binary is not _UNSET:
+        lb = lief_binary
+    else:
+        try:
+            # bytes, not list(bytez): identical features (verified 220/220), but avoids a
+            # per-byte Python list (hundreds of MB transient on large files under 1 GiB).
+            lb = lief.PE.parse(bytes(bytez))
+        except Exception:
+            lb = None
     features = {"sha256": hashlib.sha256(bytez).hexdigest()}
     features.update({fe.name: fe.raw_features(bytez, lb) for fe in self.features})
     return features
+
+
+def _strings_raw(self, bytez, lief_binary):
+    """EMBER StringExtractor.raw_features with identical output, faster and memory-lean.
+
+    The regex (C) still finds the >=5-char printable strings; only the per-character
+    Python loop over all of them is replaced by one numpy bincount, and the two
+    IGNORECASE scans by bytes.count on a lowercased copy (same non-overlapping counts;
+    IGNORECASE on bytes is ASCII-only, like bytes.lower()). Peak memory stays ~3x the
+    file size (an earlier fully-vectorised variant allocated int64 arrays for EVERY
+    printable run and was OOM-killed on 60 MB files under the 1 GiB container limit)."""
+    allstrings = self._allstrings.findall(bytez)
+    if allstrings:
+        string_lengths = [len(s) for s in allstrings]
+        avlength = sum(string_lengths) / len(string_lengths)
+        joined = b''.join(allstrings)
+        del allstrings
+        c = np.bincount(np.frombuffer(joined, dtype=np.uint8) - np.uint8(0x20), minlength=96)
+        del joined
+        csum = c.sum()
+        p = c.astype(np.float32) / csum
+        wh = np.where(c)[0]
+        H = np.sum(-p[wh] * np.log2(p[wh]))
+        n = len(string_lengths)
+    else:
+        avlength = 0
+        c = np.zeros((96,), dtype=np.float32)
+        H = 0
+        csum = 0
+        n = 0
+    low = bytes(bytez).lower()
+    out = {
+        'numstrings': n, 'avlength': avlength, 'printabledist': c.tolist(),
+        'printables': int(csum), 'entropy': float(H),
+        'paths': low.count(b'c:\\'), 'urls': low.count(b'http://') + low.count(b'https://'),
+        'registry': bytes(bytez).count(b'HKEY_'), 'MZ': bytes(bytez).count(b'MZ'),
+    }
+    del low
+    return out
 
 
 def _byteentropy_raw(self, bytez, lief_binary):
@@ -94,6 +141,7 @@ def _section_process(self, raw_obj):
 def apply():
     _f.PEFeatureExtractor.raw_features = _pe_raw_features
     _f.ByteEntropyHistogram.raw_features = _byteentropy_raw
+    _f.StringExtractor.raw_features = _strings_raw
     _f.SectionInfo.raw_features = _section_raw
     _f.SectionInfo.process_raw_features = _section_process
 

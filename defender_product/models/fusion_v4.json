@@ -1,0 +1,69 @@
+{
+  "members": {
+    "e": "ember_gbdt",
+    "r": "rf_v4",
+    "f": "ember_gbdt+ember_ft_v4"
+  },
+  "logit_clip": 1e-06,
+  "target_fpr": 0.0075,
+  "models": {
+    "efr": {
+      "order": [
+        "e",
+        "f",
+        "r"
+      ],
+      "coef": [
+        0.07364754794835487,
+        0.4371184238948364,
+        0.8961512850551364
+      ],
+      "intercept": 1.9598165953085998,
+      "threshold": 3.766770882191502,
+      "fit_tpr": 0.7363896848137536,
+      "fit_fpr_all": 0.002050580997949419,
+      "fit_fpr_exe": 0.008130081300813009
+    },
+    "ef": {
+      "order": [
+        "e",
+        "f"
+      ],
+      "coef": [
+        0.10468385613561654,
+        0.5824139111713695
+      ],
+      "intercept": 2.0583610490491755,
+      "threshold": 4.125211825693014,
+      "fit_tpr": 0.6074498567335244,
+      "fit_fpr_all": 0.002050580997949419,
+      "fit_fpr_exe": 0.008130081300813009
+    },
+    "r": {
+      "order": [
+        "r"
+      ],
+      "coef": [
+        2.0720325921338967
+      ],
+      "intercept": 1.0375265679934793,
+      "threshold": 4.170863152116442,
+      "fit_tpr": 0.5472779369627507,
+      "fit_fpr_all": 0.002050580997949419,
+      "fit_fpr_exe": 0.008130081300813009
+    }
+  },
+  "fit_set": {
+    "malware": 349,
+    "goodware": 5852,
+    "goodware_exe": 1476
+  },
+  "cv_estimate": {
+    "tpr": 0.753594202898551,
+    "fpr_all": 0.0024606925118870505,
+    "fpr_exe": 0.00975606962895099,
+    "tpr_sd": 0.057628535979584276,
+    "fpr_exe_sd": 0.007346460764719814,
+    "protocol": "10x stratified 5-fold, threshold on train folds, holdout products excluded"
+  }
+}

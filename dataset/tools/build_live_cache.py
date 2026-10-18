@@ -175,6 +175,15 @@ def items_for(corpus: str):
         for r in json.load(open(OUT / "local_index.json")):
             out.append({"kind": "file", "ref": r["path"], "sha256": r["sha256"], "label": 0,
                         "group": r["group"], "source": "local"})
+    elif corpus == "goodware2":
+        # diverse native-EXE goodware collected by collect_exe_goodware.py (GitHub releases,
+        # Chocolatey vendor downloads); group = product, the unit for held-out splits
+        for l in open(ROOT / "dataset/goodware2/index.jsonl"):
+            d = json.loads(l)
+            p = ROOT / f"dataset/goodware2/pe/{d['sha256']}.bin"
+            if p.exists():
+                out.append({"kind": "file", "ref": str(p), "sha256": d["sha256"], "label": 0,
+                            "group": d["product"], "source": d["source"], "member": d.get("member")})
     elif corpus == "grading":
         man = json.load(open(GS / "manifest.json"))["samples"]
         for s in man:

@@ -17,12 +17,16 @@ PROD = ROOT / "defender_product"
 _E = {}
 
 
-def _init():
+VARIANTS = {  # same serving code, different artifacts
+    "v3": {"DF_EMBER_FT": "models/ember_ft/ember_ft.txt", "DF_RF_DIR": "models/rf_adv", "DF_FUSION": "models/fusion.json"},
+    "v4": {"DF_EMBER_FT": "models/ember_ft_v4/ember_ft.txt", "DF_RF_DIR": "models/rf_v4", "DF_FUSION": "models/fusion_v4.json"},
+}
+
+
+def _init(variant="v3"):
     sys.path.insert(0, str(PROD))
-    os.environ.update(DF_EMBER_MODEL=str(PROD / "models/ember_gbdt/ember_gbdt.txt"),
-                      DF_EMBER_FT=str(PROD / "models/ember_ft/ember_ft.txt"),
-                      DF_RF_DIR=str(PROD / "models/rf_adv"), DF_FUSION=str(PROD / "models/fusion.json"),
-                      OMP_NUM_THREADS="1")
+    os.environ.update(DF_EMBER_MODEL=str(PROD / "models/ember_gbdt/ember_gbdt.txt"), OMP_NUM_THREADS="1",
+                      **{k: str(PROD / v) for k, v in VARIANTS[variant].items()})
     from defender.ensemble import Ensemble
     _E["m"] = Ensemble()
 
@@ -57,22 +61,28 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--corpora", default="course,goodware,local,malware")
     ap.add_argument("--final", action="store_true", help="also score the course grading set (do once, after freezing)")
+    ap.add_argument("--variant", default="v3", choices=sorted(VARIANTS))
+    ap.add_argument("--only-groups", type=pathlib.Path, help="json list: restrict goodware rows to these groups (e.g. the sealed v4 holdout)")
     args = ap.parse_args()
     corpora = args.corpora.split(",") + (["grading"] if args.final else [])
     out_dir = ROOT / "dataset/work/exp"; out_dir.mkdir(parents=True, exist_ok=True)
     rt = {json.loads(l)["sha256"] for l in open(ROOT / "dataset/work/recent_test.jsonl") if json.loads(l)["label"] == 1}
+    only = set(json.load(open(args.only_groups))) if args.only_groups else None
     for corpus in corpora:
         its = items(corpus)
-        with mp.Pool(8, initializer=_init) as pool:
+        if only is not None:
+            its = [it for it in its if it["label"] == 1 or it["group"] in only]
+        with mp.Pool(8, initializer=_init, initargs=(args.variant,)) as pool:
             res = pool.map(work, its, chunksize=8)
-        with open(out_dir / f"v3_{corpus}.jsonl", "w") as fh:
+        tag = f"{args.variant}_{corpus}" + ("_holdout" if only is not None else "")
+        with open(out_dir / f"{tag}.jsonl", "w") as fh:
             for r in res:
                 fh.write(json.dumps(r) + "\n")
         reasons = collections.Counter(r["reason"] for r in res)
         lat = sorted(r["secs"] for r in res)
         pos = [r for r in res if r["verdict"] == 1]
-        line = f"[{corpus}] n={len(res)} flagged={len(pos)} ({len(pos)/len(res):.2%})"
-        if corpus in ("goodware", "local", "course") or (corpus == "grading"):
+        line = f"[{args.variant}:{corpus}] n={len(res)} flagged={len(pos)} ({len(pos)/len(res):.2%})"
+        if corpus in ("goodware", "local", "course", "goodware2") or (corpus == "grading"):
             g = [r for r in res if r["label"] == 0]; ge = [r for r in g if r["is_exe"]]
             if g:
                 line += f" | goodware FPR {sum(r['verdict'] for r in g)/len(g):.3%} EXE {sum(r['verdict'] for r in ge)}/{len(ge)}"
