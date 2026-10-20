@@ -1,0 +1,261 @@
+{
+  "date": "2026-10-19",
+  "decision": "NO_SHIP",
+  "criteria": [
+    {
+      "criterion": "(1) Grouped-CV gain over v3 at matched EXE FPR, clearly outside noise",
+      "met": true,
+      "evidence": "compare_v3_v41.json (produced by compare_v3_v4.py --v4-tag v41 --attack-share 0.5): v3 recipe TPR 0.5746 at 0.941% EXE FPR vs v41 recipe 0.7023 at 0.990% (+12.8 pts); TPR at matched held-out 1% EXE FPR 0.623 vs 0.735 (+11.2). Ablations: rf swap alone 0.686 (+11.1), attack-aware ft alone 0.627 (+5.3). The v41-recipe number equals fusion_v41.json cv_estimate (0.7023354037267082), confirming compare used the same folds/seeds as the trainer. My reproduction (rows.py): the goodware/malware row sets are identical between the v4-era and v4.1 compare runs (5,801 goodware, 1,445 EXE, 1,030 goodware2-dev EXE; 349 malware), 0 dev-pool rows are silently dropped by the 'sha in r4g' filter, and the 5-pt move of the v3 recipe between runs (0.625 -> 0.575) is the fold change (train_v4.py switched fg to norm_group at 15:53 on Oct 18, after the 15:19 compare run); the paired gain is +12.8/+12.9 under both fold assignments. Paired noise check without the f member: (e, rf_v41) - (e, rf_adv) = +13.1 pts (sd 4.9, min +1.4, 50/50 folds; matched-FPR +12.7, 50/50); using a single fold forest instead of the mean of 5 gives +13.9, so fold-averaging does not inflate r4. Grid selection: the 4 pre-declared configs scored 0.710-0.718, within 1 pt, so selection on the dev pool is negligible. Caveats: the gain is the holdout-FPR effect seen from the TPR side (rf_adv scores r>0.5 on 44.8% of goodware2-dev EXE and 31.8% of old corpus+local EXE vs rf_v41 OOF 9.8%/8.0%; the threshold is set by goodware2-dev EXEs, new-EXE FPR 1.27-1.32% vs old-EXE 0.23% for both); malware is family-in-sample for both r members; I did not re-run the LightGBM fine-tunes to get full-recipe per-fold paired statistics for v4.1 (the v4-era family-cluster bootstrap was [+7.8, +18.3])."
+    },
+    {
+      "criterion": "(2) No leakage (integrity PASS)",
+      "met": true,
+      "evidence": "Integrity verifier: all 9 pre-registered checks PASS for rf_v41 and ember_ft_v41 with every row count reproduced from code without training (rf_v41 12,800 live goodware; folds 350/340/356/316/376 held groups; fusion fit set 349/5,801/1,445 == fusion_v41.json; 0 sealed-holdout/excluded/eval rows or hashes in any training set; 0 grading-set sha256 anywhere; 0 Sysinternals rows; OOF sets exactly equal the fold groups; recent_test \u2229 recent_train = 0; r-only fusion refit from the rf_v41 OOF files reproduces fusion_v41.json to 6 decimals; donors reproduced; 5,819 variants map to originals with matching fold). The rf_v4 leak (140 unfiltered recent_train goodware rows, 25 holdout hashes) is confirmed fixed (0/0). Two residual concerns that do not reverse this: (a) the exported ember_ft_v41 trained on all 1,455 malware plus their attack variants, so the robustness suite is in-sample for v4.1 on the 4 trained mechanisms (bias toward v4.1, which still fails criterion 4); (b) 30 live files also sit in EMBER-2018 train (1 in the fusion fit set; negligible). The eval list still carries 7 alias products (16 files) that v3's ember_ft trained on, which favours v3, not v4.1."
+    },
+    {
+      "criterion": "(3) Sealed-holdout goodware FPR not worse than v3; EXE FPR not above ~1.5%",
+      "met": true,
+      "evidence": "Recomputed from dataset/work/exp/v41_goodware2_holdout.jsonl and v3_goodware2_holdout.jsonl (291 products, 591 files, 465 EXE, 13 EXE Microsoft-trusted in both): v4.1 EXE FP 2/465 = 0.43% (Wilson 95% 0.12-1.55%) vs v3 43/465 = 9.25% (6.94-12.22%); v4 3/465. All-file FPR 2/591 = 0.34% vs 45/591 = 7.61%. Paired: 41 v3-only FPs, 0 v4.1-only, 2 shared; exact McNemar p = 9.1e-13. Both residual v4.1 FPs are unsigned low-margin ML decisions (PCem_Setup.exe r=0.996 with e=0.0035; TinySnake.x32.exe 3,584 bytes). The rate passes the bar; note the Wilson upper bound 1.55% sits just above 1.5% with n=465, and the holdout has now been read for two candidate comparisons (v4 and v4.1) and must not be used to select a v4.2 threshold."
+    },
+    {
+      "criterion": "(4) No robustness regression > 5 pts on any attack (deployed thresholds)",
+      "met": false,
+      "evidence": "Deltas recomputed from robustness_v41.json vs robustness_v3.json (n=349, recent_test minus NFS duplicates, serving path, deployed thresholds): clean 0.745 vs 0.877 (-13.2); overlay_64k 0.765 vs 0.903 (-13.8); overlay_1m 0.756 vs 0.854 (-9.7); overlay_4m 0.682 vs 0.802 (-12.0); strings_10k 0.728 vs 0.811 (-8.3); section_inject 0.742 vs 0.862 (-12.0); header_copy 0.797 vs 0.920 (-12.3); cert_blob 0.725 vs 0.891 (-16.6). Every attack violates the 5-pt rule; robustness verifier: bootstrap 95% CI upper bounds <= -4.9 pts, McNemar p <= 4.9e-6, v3-only vs v4.1-only detections 35-60 vs 0-6. Also below the rejected v4: clean -8.6, overlay_64k -8.3, header_copy -8.9, cert_blob -11.2, section_inject -3.7 (p <= 0.007). The suite is biased toward v4.1 (ember_ft_v41 trained on these 349 files and their overlay_1m/4m/strings/section variants) and v4.1 still loses; held-out mechanisms (overlay_64k, header_copy, cert_blob) are its worst (mean -14.2 vs v3), with conditional evasion on header_copy 0.058 vs 0.016 and cert_blob 0.073 vs 0.020. Root cause is the operating point: fusion_v41 OOF fit TPR 0.682 vs v3 0.828, mean clean margin 3.02 vs 4.96, threshold set on 1,445 EXE incl. 1,030 goodware2-dev vs v3's 432 EXE. Diagnostic only: at matched holdout FPR (3/465) v4.1 beats v3 on every attack by +13.5 to +23.8; my trade-off curve (tradeoff.py): v4.1 needs 10/465 = 2.15% holdout EXE FP to reach v3's deployed 306/349 clean detections, and at 7/465 (1.51%) reaches 292/349 vs v4's 304/349 at the same budget."
+    },
+    {
+      "criterion": "(5) Container gates on arm64 and amd64: build <= 300 s, ready <= 25 s, replies <= 5 s, no benign overruns",
+      "met": true,
+      "evidence": "Container verifier (scratch build context with rf_v41/ember_ft_v41/fusion_v41, --read-only --network none --cpus=1 -m 1g, uid 10001, /model threshold 4.276044044708822 == fusion_v41.json, 51 unit tests OK): build --no-cache 42.4 s arm64 / 28.6 s amd64; ready 3.6 s arm64, 5.4-6.3 s amd64 once the image is unpacked (23.6 s on the very first amd64 run including ~15 s of one-time foreign-image unpack; server itself ready in 8.9 s); no reply > 5 s; OOMKilled=false in every pre-registered run. Native arm64: 13/13 benign files answered 0, max 2.545 s (66.8 MB), memory.peak 896.6 MiB. Emulated amd64 (Rosetta, pessimistic): cold pass had ONE benign overrun (Winhance 64.5 MB, 4.082 s server-side, answered 1) and Git at 4.014 s; warm pass max 3.744 s with 0 FP; memory.peak 973/941 MiB of 1024. So the literal 'no benign overruns' clause was violated once under emulation only; native is clean and the frozen v3 image on the identical emulated gate is strictly worse (4 overrun FPs, one 5.33 s reply, memory.peak 8 KB below the limit with 97 reclaim events), so this is a shared serving-path property that v4.1 improves. Residual risks shared with v3: >60 MB benign files on a slow x86 CPU, and two concurrent large requests OOM-kill the emulated amd64 container. Course-set files are small (max 196 ms on the host). Latency numbers from eval_v3.py/eval_robustness.py (8-worker pools under host load 30-75) were disregarded for this criterion."
+    }
+  ],
+  "methodology_flaws": [
+    "Criterion 4 compares operating points, not detectors: v3's threshold was set at 0.75% EXE FPR on a fit set with only 432 EXE goodware (fusion.json fit_set), which turns out to be ~9.25% on new unsigned EXEs, whereas v4.1's was set by the same rule on 1,445 EXE including 1,030 goodware2-dev EXEs. Same rule, different goodware, so 'deployed thresholds' means v3 runs ~2.1 fused-logit units looser. The pre-registered rule was kept deliberately (V4_STATUS.md next-step 3) and it is what ships, so it still binds; but it means a v4.x can only pass criterion 4 by also choosing a laxer, pre-registered target, which then collides with criterion 3 (v4.1 needs 2.15% holdout EXE FPR to match v3's clean count).",
+    "The robustness suite is in-sample and biased toward v4.1: train_v41.py fits the exported ember_ft_v41 on np.ones over all 1,455 malware plus all 5,819 attack variants, and eval_robustness.py scores recent_test minus dups (349), so 349/349 suite files and their overlay_1m/overlay_4m/strings_10k/section_inject variants are training rows for the f member. v3/v4 share the clean-file overlap only. No robustness_v41 number on those four mechanisms is a transfer measurement, and the 'no regression > 5 pts' comparison is tilted toward v4.1; it still lost by 8-12 pts on them. The gate must be rebuilt with fold models or an ember_ft refit without recent_test.",
+    "No clean-ft control was run: the pre-declared grid (v41_grid.sh) varied variant share x rounds (CV 0.710-0.718, within noise) but never ran --no-attack under the same folds and rf OOF, so the clean-TPR cost of attack-aware fine-tuning is unmeasured. Indirect evidence the cost is real: grid with rf_v4 OOF 0.718 vs fusion_v4 0.754 (fold confound), serving path v4 290/349 vs v4.1 260/349 at deployed thresholds, and v4 dominating v4.1 at every holdout-FP budget on the trade-off curve (e.g. 304 vs 292 at 7/465, 288 vs 274 at 3/465).",
+    "The dev-pool 'TPR at matched EXE FPR' is the holdout FPR reduction seen from the TPR side, not an independent confirmation (prior-review FLAW 1 still holds): the threshold is set by goodware2-dev EXEs (71% of fit-set EXE), and in my (e,r) replica old corpus+local EXE FPR is 0.23% for both recipes while new-EXE FPR 1.27-1.32% determines the cut. The gain is 'v4.1 no longer flags goodware2-style EXEs', not better malware scoring.",
+    "'v3 recipe' in compare_v3_v4.py is not deployed v3: its fusion and threshold are refit on the v4 dev pool, so 0.575 must not be quoted as v3's TPR (deployed v3 is 87.7% in-sample at 9.25% holdout EXE FPR). Also, the v3-recipe number moved 5 pts (0.625 -> 0.575) between the two compare runs on identical rows purely from the fold assignment, so absolute CV TPRs carry roughly +/-5 pts of fold noise even though paired gains are stable; compare_v3_v4.json has no _config and predates the norm_group fold change, so only compare_v3_v41.json is the v4.1 comparison.",
+    "Malware is family-in-sample for both r members (recent_train/recent_test is a temporal split within 38 families; rf_adv used --extra-train recent_train and rf_v41 includes the 1,021 recent_train malware), and the f members are family-grouped; every TPR here is 'later samples of known families'. Phorpiex, 40 of the 50 grading malware per project notes, is not among the 38 families (NanoCore is), so none of the dev-pool TPRs predicts grading TPR; the only grading evidence is v3's 48/50 with misses at 3.27/3.07 vs 4.11.",
+    "The r4 malware OOF score is the mean of 5 fold forests (500 trees) while goodware OOF and the deployed model are single forests; checked and not a flaw (single-fold substitution gives +13.9 vs +13.1 pts; per-file fold std 0.024). Fusion CV folds are row-stratified, not product-grouped, and the matched-FPR column uses an oracle quantile on the test fold (~3 FPs); both symmetric, noise only.",
+    "The sealed holdout has now been read for two candidates (v4 on Oct 18, v4.1 on Oct 19) and the v4.1 recipe was designed after seeing v4's holdout numbers; a third use to pick a v4.2 threshold would make it a tuning set. V4_STATUS next-step 1 (drop the alias-contaminated products from the eval list) was not applied; 7 alias products (16 files, 12 EXE) remain, which favours v3, not v4.1.",
+    "Latency in eval_v3.py and eval_robustness.py was measured with 8-process pools on a host at load average 30-75 from concurrent agent jobs (4 v4.1 holdout files > 4 s vs 1 for v3); a drift-free ABBA paired timing gives a v4.1/v3 ratio of 1.015 and both model shapes are near-identical, so only the container gate is valid evidence for criterion 5.",
+    "Both v4.1 holdout FPs and all 43 v3 FPs are unsigned EXEs decided by ML fusion; the 12 'tampered_signature' malware catches are threshold-independent for all versions, so the ML layer alone detects 248/337 (v4.1) vs 294/337 (v3) on the clean suite, which is the number that moves under any threshold change."
+  ],
+  "honest_claims": "CAN be claimed about v4.1 vs v3: (a) On product-disjoint, unsigned third-party EXE goodware from the GitHub-releases/Chocolatey distribution, v4.1 cuts the false-positive rate from 9.25% (43/465) to 0.43% (2/465), paired on identical files (McNemar p = 9.1e-13), with no leakage (9/9 integrity checks reproduced from code). (b) On identical dev-pool rows, folds and threshold rule, the v4.1 recipe gives +12.8 pts TPR (0.575 -> 0.702) at ~1% EXE FPR on 349 recent malware, unanimous across paired folds in an (e,r) replica and consistent (+12.9) under a different fold assignment; the gain is the FPR reduction expressed as TPR at a fixed FPR, and ~11 pts of it is the rf_v41 swap. (c) At matched FPR (diagnostic, oracle offsets) v4.1's attacked TPR exceeds v3's on every attack (+13.5 to +23.8 pts at 3/465), and attack-aware training reduced relative fragility on the four trained mechanisms (drop from own clean TPR -1.8 vs v3 -4.4). (d) The v4.1 container passes every hard gate on both platforms and has more latency and memory headroom than v3 on 60+ MB files. CANNOT be claimed: (a) that v4.1 catches more malware as it would ship: at deployed thresholds it catches fewer under every attack and under none (clean 260 vs 306 of 349, -13.2 pts; attacks -8.3 to -16.6), with the suite biased in v4.1's favour. (b) Robustness transfer: the three held-out mechanisms are v4.1's worst (mean -14.2 vs v3) and its conditional evasion on header_copy/cert_blob is 2-4x v3's. (c) That v4.1 improves on the rejected v4: it is 8-11 pts worse at deployed thresholds on clean/overlay_64k/header_copy/cert_blob and v4 dominates it at every holdout-FP budget on the clean trade-off. (d) That attack-aware fine-tuning is free: no clean-ft control under identical folds was run. (e) Holdout EXE FPR proven below 1.5% (Wilson upper bound 1.55%, n=465). (f) Anything measured about the course grading set: it was never accessed. By project notes its 50 goodware are Microsoft-signed Sysinternals tools that the trust layer clears for both versions, and 40 of 50 malware are Phorpiex, outside our 38 training families, so dev-pool TPRs do not transfer; what is known is that v3 met 48/50 with two misses at 3.27/3.07 vs threshold 4.11, and v4.1 is 10-15 pts more conservative at its deployed threshold (OOF fit TPR 0.682 vs 0.828), which is a risk with no offsetting FPR benefit on that set. (g) Absolute serving-path TPRs (87.7% v3, 74.5% v4.1) are in-sample for both ember_ft members and recent_train-family-in-sample for both rf members; only the deltas and the grouped-CV estimates are meaningful.",
+  "verifiers": {
+    "integrity": {
+      "verdict": "CONCERN",
+      "numbers": "banned canonical groups 300 (= rf_v41 schema holdout_groups 300); v4-era key 303 (= rf_v4 schema 303); holdout raw 294, eval 291 (= 294 - 3 also-excluded), sealed holdout files 628, eval files 591 (465 EXE). rf_v41 export live goodware 12,800; recent_train rows added 1,021 (label0 0); folds held/train/oof: 350/8270/4530, 340/11704/1096, 356/11048/1752, 316/9539/3261, 376/10639/2161 (all == rf_v41.log). rf_v4 (v4-era) reproduced: 12,853 + 140 recent_train goodware; folds 330/8633/4220, 313/11534/1319, 348/10858/1995, 372/9416/3437, 397/10971/1882 (all == v4_pipeline.log); recent_train goodware products in sealed holdout: 6 canonical (bleachbit, bulkcrapuninstaller, foobar2000, maven, memreduct, notepadplusplus) / 4 under the v4-era key; alias rows rf_v4 trained on now banned: 53 rows / 11 raw groups. Check1: 0 holdout / 0 excluded / 0 eval rows in all 12 v41 training sets. Check2: holdout sha256 \u2229 {rf_v41 live, rf_v41 recent, ember_ft_v41 goodware, ember_ft_v41 malware, recent_train, EMBER train, EMBER test} = 0 each (v4-era rf_v4 export had 25); cross-product duplicate sha256 = 0; live sha with >1 row = 0. Check3: grading 100 sha256 (50 goodware) \u2229 every corpus = 0; EMBER train/test grep = 0; basename matches 0. Check4: Sysinternals rows in training 0 (44 files / 11 products in goodware2 only). Check5: all 10 fold files oof==expected True, fold-mismatch 0, group-in-train 0, sha-in-train 0, banned-in-oof 0, recent_test keys == 433: True; ember_ft sha straddling folds 0. Check6: recent_test \u2229 recent_train 0; fit malware 349, fit goodware 5,801 (1,445 EXE) == fusion_v41 fit_set; families shared 38/38 (temporal split). Check7: r-only fusion refit from rf_v41 OOF: coef 1.984470 intercept 0.314329 t 3.459297 fit_tpr 0.5186 == fusion_v41.json; from rf_v4 OOF: 2.074509 / 1.048122 / 4.192726. Check8: donors reproduced True, pool 714, 40/40 dev-pool EXE non-.NET, 39 products, train \u2229 robustness donors 0, byte-level 0, goodware2 \u2229 goodware 0, on-disk hash match 40/40 and 16/16. Check9: variants 5,819 (overlay_1m 1455, overlay_4m 1455, strings_10k 1455, section_inject 1454), originals 1455/1455, missing 0, group mismatch 0, stratum mismatch 0. Concern: robustness malware 349, in final ember_ft_v41 training 349/349, with attack variants in training 349/349. EMBER overlap: 30 live files in EMBER train (26 local, 3 goodware, 1 goodware2; 29 EMBER-benign, 1 EMBER-malicious chocolatey:hfs tools/hfs.exe), 13 inside the 150k reservoir sample, 1 in fusion fit set (local:CLion.app DLL), 0 holdout. Alias products in eval list with other-name rows in the goodware corpus: 7 products / 16 files / 12 EXE.",
+      "issues": [
+        "CONCERN (new in v4.1, outside checks 1-9): the final ember_ft_v41 fit uses np.ones(len(mm)) over all 1,455 meta_malware rows plus all 5,819 attack variants, and eval_robustness.py scores recent_test minus dups (349 files) \u2014 349/349 of those files and their overlay_1m/overlay_4m/strings_10k/section_inject variants are in the exported model's training set. Any robustness_v41 TPR on those four mechanisms is in-sample for the f member (only overlay_64k/header_copy/cert_blob are true transfer tests). v3/v4 share the clean-file overlap (train_v3.py line 68-69 also fits on all mm) but not the attacked variants, so the pre-registered v3-vs-v41 'no regression > 5 pts' comparison would be biased toward v41. The fusion/CV estimate is unaffected (fold-honest OOF). No robustness_v41.json exists yet. Fix: score robustness with fold models (OOF) or refit the exported ember_ft_v41 without recent_test malware.",
+        "MINOR: 30 live-corpus files also appear in EMBER-2018 train.jsonl (26 local, 3 goodware, 1 goodware2); 13 of them are inside the seed-20260919 150k/class reservoir sample rf trains on, so their rf OOF scores are not strictly unseen (12 are Microsoft-signed DLLs excluded from the fusion fit by msok; exactly 1, an unsigned local:CLion.app DLL, is in the 5,801-row fusion fit set). None is a holdout file. Impact negligible but not zero.",
+        "MINOR label conflict: chocolatey:hfs tools/hfs.exe (sha e678899d7ea9...) is label 1 in EMBER train (inside the 150k sample) and label 0 as live goodware in rf_v41/ember_ft_v41 training; it is a recent_train goodware row so it is excluded from the fusion fit.",
+        "INFO: V4_STATUS.md 'next step 1' (drop alias-contaminated products from the holdout evaluation list) was not applied: v4_holdout_eval_groups.json (291 = 294 minus the 3 also-excluded) still contains 7 products (bleachbit, everything, foobar2000, maven, notepadplusplus, bulk-crap-uninstaller, memreduct; 16 files, 12 EXE) whose other-name/version rows sit in the goodware corpus that v3 (and rf_v4) trained on. v41 bans them, so this favours v3 in a v3-vs-v41 holdout comparison; either drop those 16 files from the comparison or report it.",
+        "INFO: the 'desktop' heuristic hit (holdout github:bitwarden/desktop vs local:GitHub Desktop.app) is a false alarm \u2014 different products, Microsoft-signed DLLs; no product-level overlap found between local: paths and holdout products.",
+        "INFO (confirmed fixed): the rf_v4 leak documented in v4_review.json is reproduced exactly \u2014 140 unfiltered recent_train goodware rows covered 4 holdout products under the v4-era key (6 under the canonical key) and 25 sealed-holdout sha256 were in rf_v4's live rows; rf_v41 has 0 on both counts."
+      ]
+    },
+    "holdout": {
+      "verdict": "CONCERN",
+      "numbers": "HOLDOUT goodware2 (291 products, 591 files, 465 EXE, 452 non-MS-trusted EXE, 30 MS-trusted files):\nv3:  FPR overall 45/591 = 7.61% (Wilson95 5.74-10.04%); EXE 43/465 = 9.25% (6.94-12.22%); non-MS-trusted EXE 43/452 = 9.51% (7.14-12.57%); all non-trusted 45/561 = 8.02% (6.05-10.57%); reasons ml_fusion 561 / trusted_microsoft_signature 30; subset efr 561; latency (8-worker pool) p50 219ms p99 2500ms max 4029ms, >4.0s: 1, >3.0s: 3.\nv41: FPR overall 2/591 = 0.34% (0.09-1.23%); EXE 2/465 = 0.43% (0.12-1.55%); non-MS-trusted EXE 2/452 = 0.44% (0.12-1.60%); all non-trusted 2/561 = 0.36% (0.10-1.29%); same reasons/subsets; latency (8-worker pool) p50 219ms p99 3754ms max 5838ms, >4.0s: 4, >3.0s: 7.\nPaired EXE: v3-only FP 41, v41-only FP 0, both 2, McNemar exact p = 9.09e-13.\nv41 FPs: PCem-ROMs/PCem_Setup.exe 13,707,570 B score 5.1049 thr 4.276 e=0.003529 r=0.996 f=0.244747 secs 0.8129; TinySnake-game/TinySnake.x32.exe 3,584 B score 4.6244 thr 4.276 e=0.8643 r=0.838824 f=0.893557 secs 0.0057.\nv3 FPs (45): 43 EXE + 2 DLL (cuberite/lua51.dll, AirPlayServer/airplay2dll.dll); top scores octos/OctosSetup.exe 10.385 (e=0.895577 r=0.993897 f=0.946681), TinySnake.x32 7.6918, TinySnake.x64 6.5848, vscode-portable 6.5477, QuickPictureViewer 6.4328, Astro8-Setup 6.359, snitch-backend 6.2482, ProxiFyre x64 6.1387, nbeauty2 6.0887, gopeed updater 5.9528 ... Markpad 4.205 (full list in summary.json; 12 of 45 have r=0.990199 Go-binary pattern, e.g. addlicense, dstask, sttr, octo-cli, dive, gopeed).\nPool-run files >3s (v3 / v41 secs): Winhance.Installer.exe 64.5MB 4.029/5.838; Lyricify 61.0MB 3.934/4.130; K-Lite 57.5MB 3.402/3.811; msb.exe 44.9MB 2.400/4.046; meetily 42.5MB 2.502/4.216; chezmoi 40.6MB 1.764/3.914; python-3.14.8.exe 31.8MB 1.406/3.747.\nPaired per-file pool secs v41/v3 (n=561 ml_fusion rows): median 1.012, mean 1.132, p10 0.740, p90 1.422; sum 224.2s vs 239.6s.\nUncontended ABBA paired timing (one process, OMP_NUM_THREADS=1, 12 largest files): ratio v41/v3 median 1.015 min 0.935 max 1.084; max secs v3 2.940 v41 2.762 (Winhance 64.5MB); Lyricify 2.235/2.294; K-Lite 1.863/1.866; msb 1.672/1.665; meetily 1.820/1.892.\nSequential single-process runs: v3 first pass Winhance 2.429/2.382s; v41 3.184/2.777s; v3 rerun afterwards 3.371s (drift).\nHost during session: load averages 32.12 39.13 59.74 on 10 cores; com.apple.Virtualization 114.6% CPU, mediaanalysisd 80.7%, two Python procs ~68% each, Docker Desktop 23.7%.\nModel shapes: ember_gbdt 500 trees/864 leaves; ember_ft 200 trees/31 leaves; ember_ft_v41 200 trees/31 leaves; RF nodes rf_adv 2,036,122 vs rf_v41 2,063,116.\nCOURSE (7 files): v3 0/7 FP, latency p50 35ms p99 190ms max 196ms; v41 0/7 FP, p50 65ms p99 165ms max 166ms; iexplore.exe trusted_microsoft_signature in both; v41 scores: 7z -3.3769, Steam -1.6736, WinRAR -2.2138, chrome -2.0412, firefox -13.7082, wmplayer -1.2284 (thr 4.276); v3 scores: 7z -2.7311, Steam -3.977, WinRAR -4.1238, chrome -2.3376, firefox -6.1632, wmplayer -1.1633 (thr 4.1099).\nMALWARE (optimistic, in-sample for both): all 1,455: v3 1363/1455 = 93.68% (92.31-94.82%), v41 1245/1455 = 85.57% (83.67-87.28%); recent_test 433: v3 388/433 = 89.61%, v41 340/433 = 78.52%; recent_test minus 84 NFS dups (349): v3 306/349 = 87.68% (83.81-90.72%), v41 260/349 = 74.50% (69.68-78.79%); reasons in that set: ml_fusion 337, tampered_signature 12 (both); malware latency v3 p50 71ms p99 1471ms max 2329ms, v41 p50 77ms p99 1614ms max 2591ms, 0 files >4s.\nHonest grouped-CV reference (compare_v3_v41.json): v3 recipe TPR 0.5746 / EXE FPR 0.9412% / TPR@matched 0.6232; v41 recipe TPR 0.7023 / EXE FPR 0.9896% / TPR@matched 0.7353. (compare_v3_v4.json: v3 0.6252 vs v4 0.7536.) fusion_v41 cv_estimate fpr_exe 0.0099; holdout observed 0.0043.\nWall times (/usr/bin/time real): v3 holdout 33.02s, v41 holdout 35.71s, v3 course 3.59s, v41 course 3.76s, v3 malware 40.54s, v41 malware 44.56s; all rc=0.",
+      "issues": [
+        "CONCERN trigger (pre-registered): in the required eval_v3.py pool run, 4 v4.1 holdout files exceeded 4.0 s (max 5.838 s) vs 1 for v3 (4.029 s). Diagnosed as host contention (8-worker pool, load average 32-60 on 10 cores, a VM at 115% CPU): identical serving code, identical ember_ft shape (200x31), RF node count +1.3%, and a drift-free interleaved paired timing gives per-file ratio v4.1/v3 median 1.015 with uncontended max 2.76 s (v4.1) vs 2.94 s (v3). Not a v4.1 regression, but the 1-CPU container latency on 60+ MB files remains unmeasured here and is shared by v3.",
+        "v4.1 holdout EXE FPR point estimate 0.43% passes the 1.5% bar, but the Wilson 95% upper bound is 1.55%; with n=465 EXE the evaluation cannot exclude a true rate slightly above 1.5%.",
+        "Malware TPR from eval_v3.py is in-sample for both versions (ember_ft members trained on all live malware; rf members on recent_train) and must not be used for comparison: it shows v3 87.68% vs v4.1 74.50% on recent_test-minus-dups, the reverse of the honest grouped-CV ordering (v3 57.5% vs v4.1 70.2% in compare_v3_v41.json). The frozen v3 ember_ft trained on clean rows only, so it memorises the live malware more tightly than the attack-aware v4.1 model that spends half its malware mass on variants.",
+        "Both residual v4.1 false positives are low-margin ML-fusion decisions on unsigned files: PCem_Setup.exe is driven by the RF member alone (r=0.996 with e=0.0035), i.e. the NFS header/import model still has an isolated high-confidence failure mode; TinySnake.x32.exe is a 3,584-byte hand-built EXE that looks like a stub/dropper to all three members.",
+        "The holdout eval list excludes 12 greyware/Sysinternals products and the 14 extra alias-contaminated products relative to v4_holdout_groups.json (294 vs 291 after Oct-18 review) by design; results are conditional on that pre-registered list and on goodware2 labels (GitHub releases + Chocolatey), which were not re-audited here.",
+        "Latency numbers from eval_v3.py are host-pool numbers (10-core Mac, 8 workers, heavy background load), not the python:3.12-slim 1-CPU/1-GiB container; the container gate must come from the container review."
+      ]
+    },
+    "container": {
+      "verdict": "CONCERN",
+      "numbers": "UNIT TESTS: Ran 51 tests in 4.627s OK (wall 5.85 s). BUILD (--no-cache): arm64 wall 42.356 s rc=0 (apt 6.8 s, pip 18.2 s, export+unpack 15.4 s); amd64 wall 28.554 s rc=0 (apt 5.2 s, pip 15.6 s, export 6.9 s, no unpack at build). IMAGE SIZES: arm64 761,881,002 B (762MB; content 174MB, 14 layers); amd64 176,357,555 B at build (content only) -> 731MB after first run unpack (content 176MB, 14 layers). READY (docker run -> first /health 200 via docker exec): arm64 3.596 s (server clock StartedAt->ready 2.389 s, warmup 0.002 s); amd64 first-ever run 23.595 s INCLUDING ~15 s image unpack (server clock 8.916 s), re-runs with unpacked image 6.197 s / 6.297 s / 5.389 s (server clock 5.947 s). UID: 10001 (uid=10001(defender) gid=999) both; arch aarch64 / x86_64; read-only rootfs confirmed (touch /app/x -> Read-only file system); cgroup memory.max 1073741824, memory.swap.max 0, cpu.max 100000 100000. /MODEL: model_name ensemble-v41, members {e: ember_gbdt, r: rf_v41, f: ember_gbdt+ember_ft_v41}, threshold 4.276044044708822 == fusion_v41.json models.efr.threshold (MATCH both platforms), threshold_offset 0.0. ARM64 PROBES (result / client latency / server seconds): 7z 0/0.032/0.0239; Steam 0/0.116/0.1154; WinRAR 0/0.093/0.0918; chrome 0/0.061/0.0607; firefox 0/0.032/0.031; iexplore 0/0.008/0.0072; wmplayer 0/0.013/0.0122; big1 Git 66,763,664 B 0/2.545/2.5383; big2 Motrix-x64 65,715,473 B 0/1.792/1.7909; big3 Winhance 64,490,888 B 0/2.154/2.1534; big4 helm 64,449,536 B 0/1.760/1.7596; big5 DevHub 62,611,079 B 0/1.763/1.7624; big6 Motrix-ia32 62,153,321 B 0/1.701/1.7001; max 2.545 s, n>4.0s 0, FP 0. ARM64 MEMORY: peak after warmup 232,427,520 B; after large files memory.peak 940,101,632 B (896.6 MiB), memory.current 318,992,384, docker stats 294.7MiB / 1GiB 28.78%, memory.events max 0 oom 0 oom_kill 0; OOMKilled=false, Status=running, post-run /health 200. AMD64 (emulated) PROBES pass 1 (cold): 7z 0/0.073; Steam 0/0.233; WinRAR 0/0.132; chrome 0/0.100; firefox 0/0.051; iexplore 0/0.013; wmplayer 0/0.019; big1 0/4.014 (server 4.0043 scored); big2 0/3.646; big3 1/4.093 (server 4.0821 reason=overrun) ; big4 0/3.352; big5 0/3.996 (server 3.9771); big6 0/3.463; max 4.093 s, n>4.0s 2, n>5.0s 0, FP 1. AMD64 pass 2 (warm Rosetta, same 6 big files): big1 0/3.744; big2 0/2.708; big3 0/3.237; big4 0/2.643; big5 0/2.532; big6 0/2.523; max 3.744 s, FP 0. AMD64 MEMORY: peak after warmup 326,578,176 B; memory.peak 1,020,387,328 B (973.1 MiB) pass 1, 986,505,216 B (940.8 MiB) pass 2; memory.current 395,665,408; docker stats 366.4MiB / 1GiB 35.78%; memory.events max 0 oom 0 oom_kill 0; OOMKilled=false, Status=running, post-run /health 200. V3 REFERENCE (mlsec-defender:sure-amd64, frozen v3, same emulated gate): ready 9.083 s; threshold 4.109904522738936; 7 course exes all 0 (max 0.292 s); big1 1/5.326 (server 4.6816 overrun); big2 1/4.085 (4.0769 overrun); big3 1/4.508 (4.4464 overrun); big4 1/4.402 (4.3555 overrun); big5 0/3.905; big6 0/3.755; FP 4, n>5.0s 1; memory.peak 1,073,733,632 B (8,192 B below limit), memory.events max 97 oom 0 oom_kill 0, OOMKilled=false. SUPPLEMENTARY 2 CONCURRENT LARGE FILES (big1+big2): arm64 -> both result 1 reason=overrun at 4.279/4.278 s client (server 4.2671/4.2448), memory.peak 981,704,704 B, OOMKilled=false, /health 200 after; amd64 emulated -> both RemoteDisconnected after 1.176 s, container Status=exited OOMKilled=true ExitCode=137. CLEANUP: 8 containers removed, images v4gates:arm64 (4496fdd60019) and v4gates:amd64 (3bb9092f8ca7) deleted, no dangling images, mlsec-defender:* / v4-lean / sure-fresh / python:3.12-slim untouched.",
+      "issues": [
+        "Large-file latency sits near the 4.0 s overrun budget on the deployment architecture: emulated amd64 cold pass produced one overrun false positive (big3 Winhance 64.5 MB -> result 1 at 4.082 s server-side) and big1 Git at 4.014 s; warm pass max 3.744 s (94% of budget). Native arm64 max 2.545 s (64%). Emulation is pessimistic, but a slower x86_64 grading CPU could push >60 MB benign files into overrun -> answered 1. Files were all under MAX_BODY_BYTES (64 MiB) so they are fully scored.",
+        "Memory headroom is thin for a single large request: cgroup memory.peak 896.6 MiB (arm64) / 973.1-940.8 MiB (amd64 emulated) against the 1,073,741,824 B limit, i.e. 83-127 MiB spare; a ~64 MB request drives a ~650-700 MiB transient over the ~220-310 MiB baseline.",
+        "Supplementary concurrency probe: with WORKERS=2, two ~66 MB files POSTed simultaneously OOM-kill the emulated amd64 container (OOMKilled=true, exit 137, both clients RemoteDisconnected; a dead container answers nothing afterwards). On native arm64 the container survives (peak 936 MiB) but both requests overrun the shared 1 CPU and are answered 1. The pre-registered gate is sequential and passes; this is a risk only if the grader ever overlaps large requests.",
+        "amd64 ready time on the very first docker run was 23.6 s, but ~15 s of that was the one-time unpack of a foreign-platform image built with the containerd store; the server itself was ready in 8.9 s on that run and 5.4-6.3 s on re-runs. A grader building and running on native x86_64 will not see the unpack cost, but do not quote 3.6 s as the amd64 number.",
+        "All amd64 numbers are from Rosetta emulation on an Apple Silicon host (10-CPU Docker Desktop VM); no native x86_64 measurement was possible here. Treat them as an upper bound on latency and memory, not the grader's actual values.",
+        "For context (not a v4.1 defect): the frozen v3 image on the identical emulated gate is strictly worse (4 overrun FPs on the 6 large files, one 5.326 s reply, memory.peak 8 KB below the limit with 97 reclaim events). The large-file pressure is in the shared serving path; v4.1 is an improvement, not a regression, on this gate.",
+        "Integrity note: two bytecode files under defender_product/defender/__pycache__ (ensemble, ember_compat) were rewritten at 20:14:39-41 during this session by a concurrent process that ran dataset/tools/eval_v3.py (its .pyc has the same timestamp); not from my commands (my unit-test run at 20:07:19 used PYTHONDONTWRITEBYTECODE=1 and left the other six stale .pyc files at their 15:26 mtimes). No source, model or artifact file was modified by me; rf_v41/* mtimes (20:05:31) predate my first command.",
+        "The two --no-cache builds left their layers in the BuildKit cache store; I did not run docker builder prune because that would also discard the user's unrelated build cache."
+      ]
+    },
+    "robustness": {
+      "verdict": "FAIL",
+      "numbers": "Official dataset/work/exp/robustness_v41.json (n=349 for every attack), column v3_tpr = v4.1 at deployed thresholds: clean 0.7449856733524355, overlay_64k 0.7650429799426934, overlay_1m 0.7564469914040115, overlay_4m 0.6819484240687679, strings_10k 0.7277936962750716, section_inject 0.7421203438395415, header_copy 0.7965616045845272, cert_blob 0.7249283667621776.\nv3 (robustness_v3.json, reproduced exactly by scratch re-run): clean 0.8767908309455588, overlay_64k 0.9025787965616046, overlay_1m 0.8538681948424068, overlay_4m 0.8022922636103151, strings_10k 0.8108882521489972, section_inject 0.8624641833810889, header_copy 0.9197707736389685, cert_blob 0.8911174785100286.\nv4 (robustness_v4.json, reproduced exactly): clean 0.830945558739255, overlay_64k 0.8481375358166189, overlay_1m 0.7765042979942693, overlay_4m 0.7106017191977078, strings_10k 0.7191977077363897, section_inject 0.7793696275071633, header_copy 0.8853868194842407, cert_blob 0.836676217765043.\nClean detections: v3 306/349, v4 290/349, v4.1 260/349.\nBINDING deltas v4.1 minus v3 (pts) at deployed thresholds: clean -13.2; overlay_64k -13.8 VIOLATES; overlay_1m -9.7 VIOLATES; overlay_4m -12.0 VIOLATES; strings_10k -8.3 VIOLATES; section_inject -12.0 VIOLATES; header_copy -12.3 VIOLATES; cert_blob -16.6 VIOLATES (rule: no attack may lose more than 5 pts).\nPaired stats v4.1 vs v3 (349 files, 2000-resample bootstrap 95% CI, v3-only/v4.1-only, McNemar exact p): clean -13.2 [-17.2,-9.7] 49/3 p=1e-11; overlay_64k -13.8 [-17.8,-9.7] 51/3 p=2.9e-12; overlay_1m -9.7 [-13.5,-6.3] 39/5 p=1.4e-07; overlay_4m -12.0 [-15.8,-8.6] 46/4 p=4.5e-10; strings_10k -8.3 [-11.7,-4.9] 35/6 p=4.9e-06; section_inject -12.0 [-16.0,-8.3] 47/5 p=1.3e-09; header_copy -12.3 [-15.8,-8.9] 43/0 p=2.3e-13; cert_blob -16.6 [-20.9,-12.6] 60/2 p=8.5e-16.\nv4.1 minus v4 (deployed): clean -8.6 [-11.5,-5.7] 30/0 p=1.9e-09; overlay_64k -8.3 [-11.5,-5.7] 29/0 p=3.7e-09; overlay_1m -2.0 [-4.6,+0.6] 13/6 p=0.17; overlay_4m -2.9 [-6.0,+0.0] 19/9 p=0.087; strings_10k +0.9 [-2.0,+4.0] 12/15 p=0.7; section_inject -3.7 [-6.3,-1.4] 17/4 p=0.0072; header_copy -8.9 [-12.0,-5.7] 32/1 p=7.9e-09; cert_blob -11.2 [-14.3,-8.0] 39/0 p=3.6e-12.\nAttack-induced change vs OWN clean TPR (v3 / v4 / v4.1, pts): overlay_64k +2.6/+1.7/+2.0; overlay_1m -2.3/-5.4/+1.1; overlay_4m -7.4/-12.0/-6.3; strings_10k -6.6/-11.2/-1.7; section_inject -1.4/-5.2/-0.3; header_copy +4.3/+5.4/+5.2; cert_blob +1.4/+0.6/-2.0.\nTRAINED mechanisms (overlay_1m, overlay_4m, strings_10k, section_inject) mean TPR: v3 0.832, v4 0.746, v4.1 0.727 (v4.1-v3 -10.5, v4.1-v4 -1.9); mean drop-from-clean v3 -4.4, v4 -8.5, v4.1 -1.8. HELD-OUT mechanisms (overlay_64k, header_copy, cert_blob) mean TPR: v3 0.904, v4 0.857, v4.1 0.762 (v4.1-v3 -14.2, v4.1-v4 -9.5); mean drop-from-clean v3 +2.8, v4 +2.6, v4.1 +1.7.\nConditional evasion (share of clean-detected files evaded), v3/v4/v4.1: overlay_64k 0.020/0.028/0.035; overlay_1m 0.085/0.121/0.065; overlay_4m 0.141/0.210/0.177; strings_10k 0.111/0.176/0.100; section_inject 0.046/0.086/0.050; header_copy 0.016/0.028/0.058; cert_blob 0.020/0.048/0.073.\nMean efr margin (score-threshold) on clean: v3 4.96, v4 3.86, v4.1 3.02. f-member share>0.5 under overlay_4m: v3 0.871, v4 0.796, v4.1 0.956; strings_10k 0.928/0.846/0.997; r>0.5 on clean: 0.941/0.849/0.861.\nFusion configs: v3 efr coef(e,f,r)=[0.225,0.423,1.179] thr 4.110 fit_tpr 0.828 cv_tpr 0.835; v4 [0.074,0.437,0.896] thr 3.767 fit_tpr 0.736 cv_tpr 0.754; v4.1 [0.183,0.392,0.808] thr 4.276 fit_tpr 0.682 cv_tpr 0.702 (attack_aware_ft true, variant_share 0.5, rounds 200).\nSealed-holdout goodware (591 rows / 465 EXE, Ensemble.analyze, deployed): EXE FP v3 43/465 (9.25%), v4 3/465 (0.65%), v4.1 2/465 (0.43%).\nDIAGNOSTIC matched-FPR attacked TPR (uniform threshold offset so exactly k/465 holdout EXE goodware flagged), v3 / v4 / v4.1 (v4.1-v3): k=3 (0.65%): clean 0.696/0.848/0.831 (+13.5); overlay_64k 0.702/0.854/0.851 (+14.9); overlay_1m 0.650/0.791/0.842 (+19.2); overlay_4m 0.579/0.722/0.797 (+21.8); strings_10k 0.582/0.736/0.819 (+23.8); section_inject 0.605/0.799/0.831 (+22.6); header_copy 0.742/0.894/0.883 (+14.0); cert_blob 0.662/0.854/0.825 (+16.3). k=5 (1.08%): v4.1-v3 from +12.6 (clean, header_copy) to +22.3 (strings_10k, section_inject). k=2 (0.43%): +9.5 to +19.2. k=43 (v3's 9.25%): +5.2 (header_copy) to +16.6 (strings_10k). Offsets at k=3: v3 +2.438, v4 -0.121, v4.1 -0.760.\nReproduction: scratch per-file replicas match official JSONs at 4 decimals for all 8 attacks x 3 variants; v41_malware.jsonl (independent process) clean 260/349 = 0.7450. Suite donors 16 (12 + 4 signed) vs 40 training donors: sha overlap 0; suite donors in goodware2: 0. Official run wall: 20:08:12-20:11:13 (181 s, 8 workers, system load avg 51-75 from concurrent jobs); suite max-latency column 4.04-5.80 s ignored. Held-out malware 349 = 433 recent_test malware - 84 NFS duplicates.",
+      "issues": [
+        "BINDING CRITERION VIOLATED on all 7 attacks: at deployed thresholds v4.1 loses 8.3-16.6 pts vs v3 (overlay_64k -13.8, overlay_1m -9.7, overlay_4m -12.0, strings_10k -8.3, section_inject -12.0, header_copy -12.3, cert_blob -16.6); clean also -13.2 (260 vs 306 of 349). Every loss is outside noise (bootstrap 95% CI upper bounds <= -4.9, McNemar p <= 4.9e-6; v3-only vs v4.1-only detections 35-60 vs 0-6).",
+        "v4.1 regressed further than the NO-SHIP v4 at deployed thresholds: clean -8.6, overlay_64k -8.3, header_copy -8.9, cert_blob -11.2, section_inject -3.7 (all p <= 0.007); only overlay_1m/overlay_4m/strings_10k are statistically tied with v4.",
+        "Transfer to held-out mechanisms is NOT shown: held-out mechanisms (overlay_64k, header_copy, cert_blob) lose more vs v3 (mean -14.2) than trained ones (mean -10.5), v4.1's conditional evasion on them is 2-3.6x v3's (header_copy 0.058 vs 0.016, cert_blob 0.073 vs 0.020), and cert_blob now lowers TPR below clean (-2.0) where v3 gained (+1.4). The attack-aware ft only reduces RELATIVE fragility on the 4 mechanisms it trained on (drop-from-clean -1.8 vs v3 -4.4), and those numbers are doubly optimistic because ember_ft_v41 saw attack variants of these same 349 malware.",
+        "Root cause is the operating point: fused clean margin 3.02 vs v3 4.96; fusion_v41 OOF fit TPR 0.682 (v3 0.828, v4 0.736), efr threshold 4.276 with weaker member weights (r 0.808 vs 1.179); sealed-holdout EXE FPR 2/465 (0.43%) vs v3 43/465 (9.25%). The fusion refit traded ~13 pts of clean TPR for ~9 pts of EXE FPR; with 12 tampered-signature catches fixed, the ML layer detects 248/337 vs v3 294/337.",
+        "Diagnostic only, not a substitute for the rule: at matched holdout EXE FPR (3/465) v4.1 exceeds v3 on every attack by +13.5 to +23.8 pts and exceeds v4 on the four trained mechanisms by +3.2 to +8.3; this shows the loss is an operating-point choice rather than a worse detector, but as deployed v4.1 catches fewer malware than v3 under every attack and under none.",
+        "Absolute TPRs are optimistic for all three variants because both ember_ft members (and ember_ft_v41's attack variants) trained on these 349 malware; only the deltas are meaningful. The suite's v2_tpr column (applies v2 coefficients to each variant's own RF) and max-latency column (8 workers, load avg 50-75 from concurrent agent jobs) were ignored as instructed.",
+        "Provenance note: dataset/work/exp/v3_goodware2_holdout.jsonl and v41_goodware2_holdout.jsonl were rewritten at 20:08-20:10 today by a concurrent process (another agent's eval_v3.py run); their thresholds match the current fusion.json/fusion_v41.json and I used them read-only for the matched-FPR diagnostic."
+      ]
+    }
+  },
+  "compare_v3_v41": {
+    "v3 recipe (e, rf_adv, f3)": {
+      "tpr": 0.5745548654244307,
+      "fpr_all": 0.0023443820725296276,
+      "fpr_exe": 0.009411764705882349,
+      "fpr_exe_new": 0.012226829751834287,
+      "tpr_at_matched_exe_fpr1": 0.623192546583851
+    },
+    "v41 recipe (e, rf_v41, f4)": {
+      "tpr": 0.7023354037267082,
+      "fpr_all": 0.0024650568772461327,
+      "fpr_exe": 0.009896193771626293,
+      "fpr_exe_new": 0.012867312466106721,
+      "tpr_at_matched_exe_fpr1": 0.7353002070393376
+    },
+    "v41 rf only (e, rf_v41, f3)": {
+      "tpr": 0.6860041407867494,
+      "fpr_all": 0.0023616680032076992,
+      "fpr_exe": 0.009480968858131484,
+      "fpr_exe_new": 0.012288660363869719,
+      "tpr_at_matched_exe_fpr1": 0.7260910973084885
+    },
+    "v41 ft only (e, rf_adv, f4)": {
+      "tpr": 0.6272505175983436,
+      "fpr_all": 0.0024822685556446598,
+      "fpr_exe": 0.009965397923875428,
+      "fpr_exe_new": 0.012973834577170773,
+      "tpr_at_matched_exe_fpr1": 0.6834368530020702
+    },
+    "_config": {
+      "v4_tag": "v41",
+      "attack_share": 0.5,
+      "rounds": 200,
+      "target": 0.0075
+    }
+  },
+  "robustness": {
+    "v3": {
+      "clean": {
+        "n": 349,
+        "v3_tpr": 0.8767908309455588,
+        "v2_tpr": 0.8137535816618912
+      },
+      "overlay_64k": {
+        "n": 349,
+        "v3_tpr": 0.9025787965616046,
+        "v2_tpr": 0.8137535816618912
+      },
+      "overlay_1m": {
+        "n": 349,
+        "v3_tpr": 0.8538681948424068,
+        "v2_tpr": 0.8022922636103151
+      },
+      "overlay_4m": {
+        "n": 349,
+        "v3_tpr": 0.8022922636103151,
+        "v2_tpr": 0.7650429799426934
+      },
+      "strings_10k": {
+        "n": 349,
+        "v3_tpr": 0.8108882521489972,
+        "v2_tpr": 0.7822349570200573
+      },
+      "section_inject": {
+        "n": 349,
+        "v3_tpr": 0.8624641833810889,
+        "v2_tpr": 0.8166189111747851
+      },
+      "header_copy": {
+        "n": 349,
+        "v3_tpr": 0.9197707736389685,
+        "v2_tpr": 0.8510028653295129
+      },
+      "cert_blob": {
+        "n": 349,
+        "v3_tpr": 0.8911174785100286,
+        "v2_tpr": 0.7994269340974212
+      }
+    },
+    "v4": {
+      "clean": {
+        "n": 349,
+        "v3_tpr": 0.830945558739255,
+        "v2_tpr": 0.7736389684813754
+      },
+      "overlay_64k": {
+        "n": 349,
+        "v3_tpr": 0.8481375358166189,
+        "v2_tpr": 0.7736389684813754
+      },
+      "overlay_1m": {
+        "n": 349,
+        "v3_tpr": 0.7765042979942693,
+        "v2_tpr": 0.7707736389684814
+      },
+      "overlay_4m": {
+        "n": 349,
+        "v3_tpr": 0.7106017191977078,
+        "v2_tpr": 0.7478510028653295
+      },
+      "strings_10k": {
+        "n": 349,
+        "v3_tpr": 0.7191977077363897,
+        "v2_tpr": 0.7249283667621776
+      },
+      "section_inject": {
+        "n": 349,
+        "v3_tpr": 0.7793696275071633,
+        "v2_tpr": 0.7650429799426934
+      },
+      "header_copy": {
+        "n": 349,
+        "v3_tpr": 0.8853868194842407,
+        "v2_tpr": 0.830945558739255
+      },
+      "cert_blob": {
+        "n": 349,
+        "v3_tpr": 0.836676217765043,
+        "v2_tpr": 0.7679083094555874
+      }
+    },
+    "v41": {
+      "clean": {
+        "n": 349,
+        "v3_tpr": 0.7449856733524355,
+        "v2_tpr": 0.7851002865329513
+      },
+      "overlay_64k": {
+        "n": 349,
+        "v3_tpr": 0.7650429799426934,
+        "v2_tpr": 0.7765042979942693
+      },
+      "overlay_1m": {
+        "n": 349,
+        "v3_tpr": 0.7564469914040115,
+        "v2_tpr": 0.7679083094555874
+      },
+      "overlay_4m": {
+        "n": 349,
+        "v3_tpr": 0.6819484240687679,
+        "v2_tpr": 0.7507163323782235
+      },
+      "strings_10k": {
+        "n": 349,
+        "v3_tpr": 0.7277936962750716,
+        "v2_tpr": 0.7421203438395415
+      },
+      "section_inject": {
+        "n": 349,
+        "v3_tpr": 0.7421203438395415,
+        "v2_tpr": 0.7736389684813754
+      },
+      "header_copy": {
+        "n": 349,
+        "v3_tpr": 0.7965616045845272,
+        "v2_tpr": 0.8194842406876791
+      },
+      "cert_blob": {
+        "n": 349,
+        "v3_tpr": 0.7249283667621776,
+        "v2_tpr": 0.7679083094555874
+      }
+    }
+  }
+}

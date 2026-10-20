@@ -24,6 +24,7 @@ _S = {}
 VARIANTS = {
     "v3": {"DF_EMBER_FT": "models/ember_ft/ember_ft.txt", "DF_RF_DIR": "models/rf_adv", "DF_FUSION": "models/fusion.json"},
     "v4": {"DF_EMBER_FT": "models/ember_ft_v4/ember_ft.txt", "DF_RF_DIR": "models/rf_v4", "DF_FUSION": "models/fusion_v4.json"},
+    "v41": {"DF_EMBER_FT": "models/ember_ft_v41/ember_ft.txt", "DF_RF_DIR": "models/rf_v41", "DF_FUSION": "models/fusion_v41.json"},
 }
 VARIANT = os.environ.get("ROBUST_VARIANT", "v3")
 

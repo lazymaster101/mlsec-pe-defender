@@ -8,9 +8,14 @@ Branch policy:
   v3: grouped-CV gain, no robustness regression, ARM64 + x86-64 container verification,
   and a single post-freeze run on the course set.
 
-## Status (2026-10-18)
+## Status (2026-10-19)
 
-v4 candidate trained and reviewed: **NO SHIP**. See `dataset/docs/V4_STATUS.md`.
+v4 and v4.1 candidates trained and reviewed: both **NO SHIP**. See `dataset/docs/V4_STATUS.md`
+and `dataset/docs/V41_STATUS.md`. v4.1 passes 4 of 5 pre-registered criteria (leak-free,
+holdout EXE FPR 0.43% vs v3 9.25%, container gates, +12.8 pts grouped-CV TPR at matched
+FPR) and fails only robustness-at-deployed-thresholds, which turned out to compare
+operating points set on different calibration populations, not detectors. Any v4.2 must
+first amend that criterion openly (matched calibration) before running.
 - Large real gain: unsigned third-party goodware EXE FPR on a sealed 291-product holdout
   dropped from 9.2% (v3) to 0.65% (v4); +12.9 pts grouped-CV TPR at matched FPR.
 - Blocked by a robustness regression at deployed thresholds, and by a minor leak (fixed in

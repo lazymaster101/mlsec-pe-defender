@@ -143,6 +143,7 @@ def main():
     ap.add_argument("--cv", type=int, default=0)
     ap.add_argument("--folds", default="", help="comma list of folds to run (default all)")
     ap.add_argument("--export", action="store_true")
+    ap.add_argument("--tag", default="v4", help="artifact/OOF name: rf_<tag>_oof_fold*.json")
     ap.add_argument("--out", type=pathlib.Path, default=ROOT / "defender_product/models/rf_v4")
     ap.add_argument("--max-per-class", type=int, default=150000)
     ap.add_argument("--adv-frac", type=float, default=0.6)
@@ -167,7 +168,7 @@ def main():
         allg = [d for d in allg if isinstance(d.get("nfs"), dict) and norm_group(d["group"]) not in holdout]
         folds = [int(x) for x in args.folds.split(",")] if args.folds else list(range(args.cv))
         for k in folds:
-            out = exp / f"rf_v4_oof_fold{k}.json"
+            out = exp / f"rf_{args.tag}_oof_fold{k}.json"
             if out.exists():
                 print(f"fold {k}: exists, skipping", file=sys.stderr); continue
             held = {norm_group(d["group"]) for d in allg if fold_of(d["group"], args.cv) == k}
@@ -187,7 +188,7 @@ def main():
         np.save(out / "scales.npy", scales.astype("<f8"), allow_pickle=False)
         cats = [[str(v) for v in vals] for vals in encoder.categories_]
         n_features = len(T.NUMERICAL) + sum(map(len, cats)) + len(T.TEXTUAL) * args.n_hash
-        schema = {"format_version": 1, "model_name": f"NFS_v4_live{args.live_mass}", "classes": [0, 1],
+        schema = {"format_version": 1, "model_name": f"NFS_{args.tag}_live{args.live_mass}", "classes": [0, 1],
                   "malicious_class_index": 1, "n_features": n_features, **info,
                   "numerical_attributes": T.NUMERICAL, "categorical_attributes": T.CATEGORICAL,
                   "categorical_categories": cats, "categorical_handle_unknown": "ignore",
