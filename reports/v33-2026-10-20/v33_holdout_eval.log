@@ -1,0 +1,4 @@
+[v33:goodware2] n=591 flagged=50 (8.46%) | goodware FPR 8.460% EXE 48/465
+     reasons {'ml_fusion': 561, 'trusted_microsoft_signature': 30} | latency p50 274ms p99 3490ms max 6087ms
+[v33:malware] n=1705 flagged=1649 (96.72%) | malware TPR 96.72% (recent_test 94.69%)
+     reasons {'ml_fusion': 1599, 'tampered_signature': 96, 'embedded_powershell_bypass': 8, 'unparseable': 2} | latency p50 89ms p99 1839ms max 3406ms

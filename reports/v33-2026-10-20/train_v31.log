@@ -1,0 +1,6 @@
+[efr] coef=[0.2125, 0.3787, 1.2152] b=2.4683 t=3.9006 | fit TPR 0.865 FPR all 0.089% EXE 0.926%
+[ef] coef=[0.3248, 0.4139] b=3.5102 t=3.8314 | fit TPR 0.811 FPR all 0.111% EXE 0.926%
+[r] coef=[2.5824] b=-0.2523 t=8.9464 | fit TPR 0.175 FPR all 0.067% EXE 0.694%
+CV (10x5, dedup'd): TPR 0.871±0.040 (EXE malware 0.891) | FPR all 0.116% EXE 1.181%±1.693%
+course f (fold-avg): [0.028, 0.058, 0.802, 0.286, 0.065, 0.386, 0.862]
+wrote /Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/models/ember_ft_v31/ember_ft.txt (3.0 MB) and /Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/models/fusion_v31.json

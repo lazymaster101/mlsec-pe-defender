@@ -1,0 +1,8 @@
+feature-identical to a grading malware sample: 0 training rows dropped
+malware rows: 1705 -> 1705 after hygiene; untagged groups: 30
+[efr] coef=[0.2199, 0.3716, 1.2236] b=2.4655 t=3.9456 | fit TPR 0.845 FPR all 0.089% EXE 0.926%
+[ef] coef=[0.3587, 0.4013] b=3.6947 t=3.7405 | fit TPR 0.811 FPR all 0.111% EXE 0.926%
+[r] coef=[2.5824] b=-0.2523 t=8.9464 | fit TPR 0.175 FPR all 0.067% EXE 0.694%
+CV (10x5, dedup'd): TPR 0.853±0.042 (EXE malware 0.873) | FPR all 0.109% EXE 1.135%±1.614%
+course f (fold-avg): [0.033, 0.107, 0.841, 0.347, 0.021, 0.217, 0.881]
+wrote /Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/models/ember_ft_v32/ember_ft.txt (3.0 MB) and /Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/models/fusion_v32.json

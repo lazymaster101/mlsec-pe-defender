@@ -17,8 +17,8 @@ Decision order for one file:
                           f = ember_gbdt + ember_ft (continued boosting on live
                               recent malware + live goodware, stratum-balanced)
      If one extractor fails the matching fallback fusion is used (EMBER-only 'ef' or
-     NFS-only 'r'); only a file NO extractor can read is flagged (fail toward
-     detection for malformed input, not for a parser quirk in one library).
+     NFS-only 'r'). A body LIEF cannot parse as a PE is flagged without scoring
+     (v3.3; fail toward detection for malformed input), as is a file no extractor can read.
 
 Config via env:
   DF_EMBER_MODEL   ember_gbdt LightGBM text model
@@ -114,6 +114,13 @@ class Ensemble:
         tell = cmdline.embedded_powershell_bypass(bytez)
         if tell:
             out.update(verdict=1, reason="embedded_powershell_bypass", tell=tell)
+            return out
+        if pe is None:
+            # v3.3: fail toward detection as documented. Before this, a body LIEF could not
+            # parse still reached the EMBER byte-level features (histograms, entropy, strings
+            # need no PE structure), so random / non-PE blobs >= ~512 KB were ML-scored benign
+            # (review 2026-10-20). 0 of 13,503 goodware in our corpora are LIEF-unparseable.
+            out.update(verdict=1, reason="unparseable")
             return out
         m = {}
         try:

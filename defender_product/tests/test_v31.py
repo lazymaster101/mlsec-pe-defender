@@ -128,6 +128,18 @@ class EnsembleV31Test(unittest.TestCase):
                 return
         self.skipTest("no course goodware reaches the ML layer")
 
+    def test_random_and_non_pe_bodies_fail_toward_detection(self):
+        # v3.3: LIEF-unparseable input is flagged without ML scoring (review finding: random
+        # blobs >= 512 KB used to be scored benign through the EMBER byte features)
+        import random
+        rng = random.Random(7)
+        for body in (bytes(rng.getrandbits(8) for _ in range(1 << 20)),
+                     b"MZ" + bytes(rng.getrandbits(8) for _ in range(1 << 20)),
+                     b"%PDF-1.7\n" + bytes(rng.getrandbits(8) for _ in range(600_000)),
+                     b"PK\x03\x04" + bytes(rng.getrandbits(8) for _ in range(600_000))):
+            out = self.m.analyze(body)
+            self.assertEqual((out["reason"], out["verdict"]), ("unparseable", 1))
+
     def test_trusted_file_is_not_scanned_for_the_tell(self):
         # the trust layer comes first: a Microsoft-trusted file is benign regardless of strings
         for p in sorted(SAMPLE_DIR.iterdir()):

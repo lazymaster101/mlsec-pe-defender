@@ -73,3 +73,42 @@ ROBUST_VARIANT=v32 $PY dataset/tools/eval_robustness.py
 docker build -f defender_product/Dockerfile.ensemble -t mlsec-defender:v32 defender_product
 ```
 Results: `dataset/results/v32_review.json`.
+
+## 6. Errata from the independent review (2026-10-20, after this document was first written)
+
+A six-agent review (`dataset/results/v32_review_workflow.json`) re-derived every claim above from the
+artifacts. Its judge returned "ship" but flagged the following reporting defects, which are corrected
+here and carried into `V33_STATUS.md`:
+
+* **§1 counts were wrong.** New rows by query: stealer **187** (not 170), EXE feed 49, Rust 8, golang 5,
+  Go 1 (= 250). Families: Vidar **77** (not 61), WARDENStealer 57, untagged 43, SalatStealer 28,
+  RemusStealer **11**, RustyStealer 4, VShell 3, njrat 3, AokigaharaStealer 3, BridgeAgent 2, ValleyRAT 1,
+  GCleaner 1, plus 17 singletons the list omitted (LabubaRAT, OverlordRAT, LummaStealer, PantherStealer,
+  ChickenStealer, CherryStealer, AudaxStealer, YamiStealer, TakerStealer, SeroRAT, SentinelStealer,
+  RevStealer, JJMStealer, GiaPhucStealer, AntigravityAdvancedStealer, SilentNet, CoinMiner).
+  The tags `loader` and `dropper` were **skipped** (four HTTP 502s) and `Nim`/`nim`/`NET` returned no
+  new rows, so the haul is stealers + Rust/Go + the EXE feed; the §5 command would not reproduce it.
+* **"Read three times today" understated it.** On 2026-10-20 the course set was scored in-process for
+  v4 and v4.1 (another session, `V41_STATUS.md`), then for candidates A, B and C here, and C was also
+  run through the container three times (quiet arm64, contended arm64, amd64, plus the review's own
+  run). None was a selection event; the count is corrected.
+* **Container baseline cells lacked logs.** The v3 and v3.1 rows came from this session's own gate runs,
+  whose logs are now saved as `dataset/work/exp/container_gate_v3_baseline_quiet.log` (v3: 2.97–6.03 s,
+  all six large files answered 0 in that run; the v4 review had seen overruns at 2.6–5.6 s) and
+  `container_gate_v31_quiet.log` (v3.1: 1.93–2.86 s, all 0, peak 1024 MiB). The amd64 run of v3.2 is in
+  `container_gate_v32_amd64_contended.log` (50/50, p95 120 ms, peak 976 MiB, no OOM; timing under
+  emulation and contention).
+* **Robustness phrasing.** v3.2 is under v3.1 on 3 of the 7 attacks by 0.3–1.7 pts (clean −0.9,
+  overlay-1M −0.9, cert-blob −1.7), equal on 3, above on 1.
+* **The hygiene gate was too weak.** "0 feature-identical rows" (`isclose`, atol 1e-6) cannot see
+  near-identical *builds* at EMBER scale. **38 NanoCore training rows (present since v3) are within
+  L2 10,000 of two course NanoCore samples** (nearest 2.4 and 5.9; the next nearest training row to any
+  course malware is at 29,495), and 2 training rows are hashes from the *original* course release that
+  the corrected release replaced. Two of the 50 course malware were therefore effectively in training
+  for v3, v3.1 and v3.2 alike. v3.3 drops all 40 rows (`train_v31.py --near-dup-l2 10000`).
+* **Fail-toward-detection was not what the docs said.** Random or non-PE bodies ≥ ~512 KB were scored
+  benign: LIEF fails, but the EMBER byte features need no PE structure, so the `ef` fallback scored them
+  (5 MB random → 2.39 < threshold). Not a grading risk (the harness posts PE files; 0 of 13,503 goodware
+  are LIEF-unparseable), but v3.3 flags any LIEF-unparseable body as `unparseable → 1`, with a test.
+* Minor: the zip also contains a `.dockerignore` (allow-list); memory headroom after six 60 MB files is
+  ~128 MiB on arm64 and ~48 MiB on emulated amd64, so very large unsigned goodware could still OOM.

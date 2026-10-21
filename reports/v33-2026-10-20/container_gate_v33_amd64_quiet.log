@@ -1,0 +1,18 @@
+WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested
+[v33amd64] ready after 4s
+[v33amd64] image: sha256:075b8593ddb4  size: 733 MB
+[v33amd64] /model: ensemble-v33 thr=4.0819 ['authenticode_trust(microsoft_pinned_pca)', 'authenticode_tamper', 'embedded_powershell_bypass', 'logodds_fusion(ember_gbdt, rf_adv, ember_gbdt+ember_ft_v33)']
+[v33amd64] === course set over HTTP (scored once per candidate) ===
+[v33amd64] TP=50 FN=0 FP=0 TN=50 | TPR=100.0% FPR=0.0% | PASS | errors=0 | latency p95=51ms max=76ms
+[v33amd64] mem after course set: 273 MiB peak: 291 MiB
+[v33amd64] === largest goodware2 files (1 CPU) ===
+     66.8 MB   4.00 s  result=0  choco:git.install
+     65.7 MB   2.98 s  result=0  github:agalwood/Motrix
+     64.5 MB   3.50 s  result=0  github:memstechtips/Winhance
+     64.4 MB   2.89 s  result=0  choco:kubernetes-helm
+     62.6 MB   2.80 s  result=0  github:devhubapp/devhub
+     62.2 MB   2.79 s  result=0  github:agalwood/Motrix
+[v33amd64] mem peak after large files: 973 MiB  oom_kill: oom_kill 0
+[v33amd64] malformed input -> {"result": 1}
+[v33amd64] error lines in container log: 0
+[v33amd64] gate exit code: 0 (wall 27s)

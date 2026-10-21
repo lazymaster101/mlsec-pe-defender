@@ -25,3 +25,6 @@ defender/vendor_ember2024/
 !models/ember_ft_v32/
 !models/ember_ft_v32/**
 !models/fusion_v32.json
+!models/ember_ft_v33/
+!models/ember_ft_v33/**
+!models/fusion_v33.json

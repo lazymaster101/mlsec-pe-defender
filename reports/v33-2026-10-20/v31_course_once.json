@@ -1,0 +1,101 @@
+{
+ "tp": 49,
+ "fn": 1,
+ "fp": 0,
+ "tn": 50,
+ "threshold": 3.900649152703766,
+ "flagged_rows": [
+  [
+   "malware",
+   "4ea01cf424fc",
+   "unlabeled",
+   "ml_fusion",
+   3.5584,
+   3.9006,
+   ""
+  ],
+  [
+   "malware",
+   "590ab5582e6a",
+   "unlabeled",
+   "embedded_powershell_bypass",
+   null,
+   null,
+   "powershell_bypass_hidden:subprocess.Popen([\"powers"
+  ]
+ ],
+ "lowest": [
+  [
+   3.5584,
+   "4ea01cf424fc",
+   "unlabeled",
+   "ml_fusion",
+   0.110508,
+   0.980484,
+   0.510333
+  ],
+  [
+   4.7408,
+   "6645211f1755",
+   "unlabeled",
+   "ml_fusion",
+   0.409365,
+   0.998065,
+   0.497
+  ],
+  [
+   4.799,
+   "f36e5b52f5ff",
+   "unlabeled",
+   "ml_fusion",
+   0.219941,
+   0.987976,
+   0.68257
+  ],
+  [
+   4.9394,
+   "d319feb9241e",
+   "unlabeled",
+   "ml_fusion",
+   0.700395,
+   0.997685,
+   0.498667
+  ],
+  [
+   5.5995,
+   "837f3b414885",
+   "Phorpiex",
+   "ml_fusion",
+   0.808854,
+   0.99744,
+   0.614333
+  ],
+  [
+   5.665,
+   "63d31f6d448d",
+   "Phorpiex",
+   "ml_fusion",
+   0.817835,
+   0.997773,
+   0.614333
+  ],
+  [
+   5.6895,
+   "17843590f5ff",
+   "Phorpiex",
+   "ml_fusion",
+   0.824877,
+   0.997856,
+   0.614333
+  ],
+  [
+   5.6969,
+   "bddbed57dd41",
+   "Phorpiex",
+   "ml_fusion",
+   0.826589,
+   0.997883,
+   0.614333
+  ]
+ ]
+}

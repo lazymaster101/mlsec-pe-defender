@@ -50,6 +50,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rounds", type=int, default=800)
     ap.add_argument("--tag", default="v31", help="artifact suffix: models/ember_ft_<tag>/, models/fusion_<tag>.json")
+    ap.add_argument("--near-dup-l2", type=float, default=0.0,
+                    help="v3.3: drop training malware whose EMBER vector is within this L2 of any course malware "
+                         "sample (near-identical builds), and drop the course manifest's removed_sha256 hashes; 0 = off")
     ap.add_argument("--target", type=float, default=0.0075)
     args = ap.parse_args()
     L = lambda c: [json.loads(l) for l in open(C / f"meta_{c}.jsonl")]
@@ -78,6 +81,23 @@ def main():
                 dup[i] = True
         print(f"feature-identical to a grading malware sample: {int(dup.sum())} training rows dropped")
         keep &= ~dup
+        if args.near_dup_l2 > 0:
+            # review 2026-10-20: isclose(atol=1e-6) cannot see near-identical BUILDS at EMBER scale
+            # (per-feature max ~4e9). Exact per-pair L2 (no Gram trick: it is numerically unstable here).
+            Xd = Xm.astype(np.float64); dmin = np.full(len(mm), np.inf)
+            for g in Xgr.astype(np.float64):
+                dmin = np.minimum(dmin, np.linalg.norm(Xd - g, axis=1))
+            nd = keep & (dmin < args.near_dup_l2)
+            fams = {}
+            for i in np.where(nd)[0]:
+                fams[mm[i]["group"]] = fams.get(mm[i]["group"], 0) + 1
+            print(f"near-duplicate (L2 < {args.near_dup_l2:g}) of a grading malware sample: {int(nd.sum())} rows dropped {fams}")
+            keep &= ~nd
+            man = json.load(open(ROOT / "csce704-blackbox-validation-100-samples-20261014-corrected/manifest.json"))
+            removed = set(man.get("lineage", {}).get("removed_sha256", []))
+            rm = keep & np.array([d["sha256"] in removed for d in mm])
+            print(f"hashes from the ORIGINAL course release (manifest.lineage.removed_sha256): {int(rm.sum())} rows dropped")
+            keep &= ~rm
     print(f"malware rows: {len(mm)} -> {int(keep.sum())} after hygiene; untagged groups: "
           f"{len({d['group'] for d in mm if d['group'].startswith('untagged:')})}")
     mm = [d for d, k in zip(mm, keep) if k]; Xm = Xm[keep]

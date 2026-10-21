@@ -1,0 +1,318 @@
+{
+ "version": "v33",
+ "date": "2026-10-20",
+ "course_set_reads_2026-10-20": [
+  "v4 and v4.1 in-process (other session, V41_STATUS.md)",
+  "A in-process",
+  "B (v3.1) in-process + arm64 container",
+  "C (v3.2) in-process + arm64 x2 + amd64 + review's own gate",
+  "D (v3.3) in-process + arm64 + amd64"
+ ],
+ "course_set_v33": {
+  "in_process": {
+   "tp": 50,
+   "fn": 0,
+   "fp": 0,
+   "tn": 50,
+   "threshold": 4.081908667053039,
+   "wrong": [],
+   "lowest": [
+    [
+     4.5945,
+     "f36e5b52f5ff",
+     "unlabeled",
+     "ml_fusion",
+     0.219941,
+     0.978557,
+     0.68257
+    ],
+    [
+     4.7318,
+     "4ea01cf424fc",
+     "unlabeled",
+     "ml_fusion",
+     0.110508,
+     0.998866,
+     0.510333
+    ],
+    [
+     5.6557,
+     "63d31f6d448d",
+     "Phorpiex",
+     "ml_fusion",
+     0.817835,
+     0.997468,
+     0.614333
+    ],
+    [
+     5.6793,
+     "ecdc7cb90d66",
+     "Phorpiex",
+     "ml_fusion",
+     0.824826,
+     0.997553,
+     0.614333
+    ],
+    [
+     5.6801,
+     "6f73f5d8d8e7",
+     "Phorpiex",
+     "ml_fusion",
+     0.827384,
+     0.997536,
+     0.614333
+    ],
+    [
+     5.6872,
+     "17843590f5ff",
+     "Phorpiex",
+     "ml_fusion",
+     0.824877,
+     0.9976,
+     0.614333
+    ],
+    [
+     5.6882,
+     "49dc5155cd50",
+     "Phorpiex",
+     "ml_fusion",
+     0.825677,
+     0.997599,
+     0.614333
+    ],
+    [
+     5.6944,
+     "bddbed57dd41",
+     "Phorpiex",
+     "ml_fusion",
+     0.826589,
+     0.997628,
+     0.614333
+    ]
+   ],
+   "nanocore": [
+    [
+     13.3294,
+     "176e3b8bb480",
+     "NanoCore",
+     "ml_fusion",
+     0.999997,
+     1.0,
+     0.90547
+    ],
+    [
+     13.2686,
+     "4b204193a8b7",
+     "NanoCore",
+     "ml_fusion",
+     0.999996,
+     1.0,
+     0.90547
+    ]
+   ]
+  },
+  "container_arm64_quiet_log": "dataset/work/exp/container_gate_v33_quiet.log",
+  "container_amd64_quiet_log": "dataset/work/exp/container_gate_v33_amd64_quiet.log"
+ },
+ "hygiene": {
+  "near_dup_l2_threshold": 10000,
+  "near_dup_rows_dropped": {
+   "NanoCore": 38
+  },
+  "original_release_hashes_dropped": 2,
+  "malware_rows": 1665,
+  "untagged_groups_by_imphash": 30,
+  "course_hashes_in_training": 0
+ },
+ "fusion": {
+  "ft_rounds": 800,
+  "malware_rows": 1665,
+  "fit_set": {
+   "malware": 349,
+   "goodware": 4497,
+   "goodware_exe": 432
+  },
+  "cv_estimate": {
+   "tpr": 0.8648115942028987,
+   "tpr_exe": 0.8862189957652753,
+   "fpr_all": 0.001156297120257076,
+   "fpr_exe": 0.012034215450414327,
+   "tpr_sd": 0.04306211095512733,
+   "fpr_exe_sd": 0.016179014626470742,
+   "protocol": "10x stratified 5-fold, threshold on train folds"
+  }
+ },
+ "efr": {
+  "order": [
+   "e",
+   "f",
+   "r"
+  ],
+  "coef": [
+   0.2019370524535093,
+   0.4056120165910556,
+   1.2396874948912533
+  ],
+  "intercept": 2.3513009888033687,
+  "threshold": 4.081908667053039,
+  "fit_tpr": 0.8481375358166189,
+  "fit_fpr_all": 0.00088948187680676,
+  "fit_fpr_exe": 0.009259259259259259
+ },
+ "new_samples": {
+  "n": 250,
+  "by_query": {
+   "mb_type:exe": 49,
+   "mb_tag:Rust": 8,
+   "mb_tag:golang": 5,
+   "mb_tag:Go": 1,
+   "mb_tag:stealer": 187
+  },
+  "by_family": {
+   "Vidar": 77,
+   "WARDENStealer": 57,
+   "untagged": 43,
+   "SalatStealer": 28,
+   "RemusStealer": 11,
+   "RustyStealer": 4,
+   "VShell": 3,
+   "njrat": 3,
+   "AokigaharaStealer": 3,
+   "BridgeAgent": 2,
+   "ValleyRAT": 1,
+   "GCleaner": 1,
+   "LabubaRAT": 1,
+   "OverlordRAT": 1,
+   "LummaStealer": 1,
+   "PantherStealer": 1,
+   "ChickenStealer": 1,
+   "CherryStealer": 1,
+   "AudaxStealer": 1,
+   "YamiStealer": 1,
+   "TakerStealer": 1,
+   "SeroRAT": 1,
+   "SentinelStealer": 1,
+   "RevStealer": 1,
+   "JJMStealer": 1,
+   "GiaPhucStealer": 1,
+   "AntigravityAdvancedStealer": 1,
+   "SilentNet": 1,
+   "CoinMiner": 1
+  },
+  "tags_skipped_http502": [
+   "loader",
+   "dropper"
+  ],
+  "tags_without_new_rows": [
+   "Nim",
+   "nim",
+   "NET"
+  ]
+ },
+ "sealed_holdout": {
+  "v3": {
+   "all": [
+    45,
+    591
+   ],
+   "exe": [
+    43,
+    465
+   ]
+  },
+  "v31": {
+   "all": [
+    45,
+    591
+   ],
+   "exe": [
+    43,
+    465
+   ]
+  },
+  "v32": {
+   "all": [
+    49,
+    591
+   ],
+   "exe": [
+    47,
+    465
+   ]
+  },
+  "v33": {
+   "all": [
+    50,
+    591
+   ],
+   "exe": [
+    48,
+    465
+   ]
+  }
+ },
+ "holdout_mcnemar_v33_vs_v3": {
+  "new_fp": 8,
+  "fixed": 3,
+  "p": 0.23
+ },
+ "robustness": {
+  "clean": {
+   "v3": 0.8767908309455588,
+   "v31": 0.9426934097421203,
+   "v32": 0.9340974212034384,
+   "v33": 0.9369627507163324
+  },
+  "overlay_64k": {
+   "v3": 0.9025787965616046,
+   "v31": 0.9283667621776505,
+   "v32": 0.9283667621776505,
+   "v33": 0.9255014326647565
+  },
+  "overlay_1m": {
+   "v3": 0.8538681948424068,
+   "v31": 0.8853868194842407,
+   "v32": 0.8767908309455588,
+   "v33": 0.8939828080229226
+  },
+  "overlay_4m": {
+   "v3": 0.8022922636103151,
+   "v31": 0.8080229226361032,
+   "v32": 0.8137535816618912,
+   "v33": 0.8108882521489972
+  },
+  "strings_10k": {
+   "v3": 0.8108882521489972,
+   "v31": 0.8510028653295129,
+   "v32": 0.8481375358166189,
+   "v33": 0.8624641833810889
+  },
+  "section_inject": {
+   "v3": 0.8624641833810889,
+   "v31": 0.9054441260744985,
+   "v32": 0.9054441260744985,
+   "v33": 0.8968481375358166
+  },
+  "header_copy": {
+   "v3": 0.9197707736389685,
+   "v31": 0.9398280802292264,
+   "v32": 0.9398280802292264,
+   "v33": 0.9369627507163324
+  },
+  "cert_blob": {
+   "v3": 0.8911174785100286,
+   "v31": 0.9340974212034384,
+   "v32": 0.9169054441260746,
+   "v33": 0.9283667621776505
+  }
+ },
+ "recent_test_tpr": {
+  "v3": 0.896,
+  "v31": 0.954,
+  "v32": 0.945,
+  "v33": 0.947
+ },
+ "tests": "75/75",
+ "unparseable_rule": "LIEF-unparseable body -> 1 (v3.3); 0/13,503 goodware affected; 2/1,705 malware newly flagged",
+ "review_of_v32": "dataset/results/v32_review_workflow.json (judge: ship; 5 reporting defects corrected in V32_STATUS.md \u00a76 and here)"
+}

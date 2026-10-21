@@ -1,0 +1,17 @@
+[v32quiet] ready after 3s
+[v32quiet] image: sha256:cc21eb0992b0  size: 764 MB
+[v32quiet] /model: ensemble-v32 thr=3.9456 ['authenticode_trust(microsoft_pinned_pca)', 'authenticode_tamper', 'embedded_powershell_bypass', 'logodds_fusion(ember_gbdt, rf_adv, ember_gbdt+ember_ft_v32)']
+[v32quiet] === course set over HTTP (scored once per candidate) ===
+[v32quiet] TP=50 FN=0 FP=0 TN=50 | TPR=100.0% FPR=0.0% | PASS | errors=0 | latency p95=40ms max=59ms
+[v32quiet] mem after course set: 193 MiB peak: 215 MiB
+[v32quiet] === largest goodware2 files (1 CPU) ===
+     66.8 MB   2.87 s  result=0  choco:git.install
+     65.7 MB   2.09 s  result=0  github:agalwood/Motrix
+     64.5 MB   2.44 s  result=0  github:memstechtips/Winhance
+     64.4 MB   2.05 s  result=0  choco:kubernetes-helm
+     62.6 MB   1.98 s  result=0  github:devhubapp/devhub
+     62.2 MB   1.99 s  result=0  github:agalwood/Motrix
+[v32quiet] mem peak after large files: 896 MiB  oom_kill: oom_kill 0
+[v32quiet] malformed input -> {"result": 1}
+[v32quiet] error lines in container log: 0
+[v32quiet] gate exit code: 0 (wall 18s)

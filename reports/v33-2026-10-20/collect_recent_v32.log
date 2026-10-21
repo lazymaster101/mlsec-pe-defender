@@ -1,0 +1,31 @@
+100 evaluation hashes banned from collection
+1455 samples already indexed
+  type:exe: 100 PE rows of 100
+  tag:Rust: 50 PE rows of 73
+  tag:rust: 50 PE rows of 73
+  tag:golang: 144 PE rows of 198
+  tag:Go: 33 PE rows of 64
+  tag:Nim: 3 PE rows of 3
+  tag:nim: 3 PE rows of 3
+  tag:NET: 4 PE rows of 4
+    transient error (HTTP Error 502: Bad Gateway); retry in 3s
+    transient error (HTTP Error 502: Bad Gateway); retry in 6s
+    transient error (HTTP Error 502: Bad Gateway); retry in 12s
+    transient error (HTTP Error 502: Bad Gateway); retry in 24s
+  tag:loader: skipped (MalwareBazaar API failed after 4 attempts: HTTP Error 502: Bad Gateway)
+    transient error (HTTP Error 502: Bad Gateway); retry in 3s
+    transient error (HTTP Error 502: Bad Gateway); retry in 6s
+    transient error (HTTP Error 502: Bad Gateway); retry in 12s
+    transient error (HTTP Error 502: Bad Gateway); retry in 24s
+  tag:dropper: skipped (MalwareBazaar API failed after 4 attempts: HTTP Error 502: Bad Gateway)
+  tag:stealer: 205 PE rows of 266
+
+selected 250 new PE samples (0 evaluation hashes refused); top signatures: [('Vidar', 77), ('WARDENStealer', 57), ('untagged', 43), ('SalatStealer', 28), ('RemusStealer', 11), ('RustyStealer', 4), ('VShell', 3), ('njrat', 3), ('AokigaharaStealer', 3), ('BridgeAgent', 2), ('ValleyRAT', 1), ('GCleaner', 1)]
+  50/250 downloaded=50 failed=0
+  100/250 downloaded=100 failed=0
+  150/250 downloaded=150 failed=0
+  200/250 downloaded=200 failed=0
+  250/250 downloaded=250 failed=0
+
+downloaded 250, failed 0, into dataset/quarantine/archives
+Archives are password-protected malware. Never extract to a Windows-reachable path; never execute.

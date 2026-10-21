@@ -1,0 +1,447 @@
+{
+ "workflow": "review-v32-candidate",
+ "run": "wf_70b32e41-d40",
+ "date": "2026-10-20",
+ "verifiers_and_judge": [
+  {
+   "verdict": "PASS",
+   "findings": [
+    {
+     "claim": "Claim 1: v3 flags 45/591 (43/465 EXE), v3.1 45/591 (43/465), v3.2 49/591 (47/465) on label-0 rows; all three files cover the same 591 sha256s.",
+     "verified": true,
+     "evidence": "Recomputed with /tmp/review_v32/check.py (python -I) over dataset/work/exp/{v3,v31,v32}_goodware2_holdout.jsonl. Each file: 591 lines, 591 unique sha256, 0 duplicates, all label==0, is_exe True=465/False=126. Flagged (verdict==1): v3 45 overall / 43 EXE / 2 non-EXE; v31 45/43/2; v32 49/47/2. sha256 sets identical across the three files (symmetric differences 0/0/0, |intersection|=591), same row order, and is_exe/label agree per sha in all three. Matches v32_holdout_eval.log ('n=591 flagged=49 (8.29%) ... EXE 47/465') and v31_holdout_eval.log ('flagged=45 ... EXE 43/465').",
+     "severity": "info"
+    },
+    {
+     "claim": "Claim 2: v3 vs v3.2 has exactly 10 discordant goodware files (7 only-v3.2, 3 only-v3); exact McNemar/binomial p-value.",
+     "verified": true,
+     "evidence": "Computed 2x2: both=42, only_v3=3, only_v32=7, neither=539 (sum 591). Exact two-sided binomial test (b=7, c=3, n=10, p0=0.5): p = 0.343750 (scipy binomtest agrees: 0.34375); one-sided P(X>=7|n=10) = 0.171875; two-sided mid-p = 0.226562; McNemar chi2 with continuity = 0.90. Not significant. Caveat: the count is fragile at the threshold: only-v3.2 file 0ce21dfa316c scores 3.9535 (+0.0079 above thr 3.9456) and only-v3 file 76beba602956 scores 3.9446 (-0.0010 below thr); a +/-0.01 threshold shift changes the split to 6v3 or 7v4. Only-v3.2 (sha12, v3 score -> v3.2 score): d7d3ef4f30c5 3.9923->4.9800, 4f74d4c95c46 4.1014->4.9735, d30824f5487f 3.8344->4.5445, 80b2a952d50f 3.6712->4.4493, dee970c440bc 3.5135->4.3399, 260354b63596 3.5321->4.2238, 0ce21dfa316c 3.2160->3.9535; all EXE, all ml_fusion. Only-v3: 332a8617aab5 4.7149->3.8989, 4a7fd41f2c32 4.2647->3.7689, 76beba602956 4.2050->3.9446. Also: v3.1 vs v3.2 = 5 only-v3.2 / 1 only-v3.1; v3 vs v3.1 = 3/3.",
+     "severity": "minor"
+    },
+    {
+     "claim": "Claim 3: thresholds inside the files are v3 4.1099, v3.1 3.9006, v3.2 3.9456 on ml_fusion rows.",
+     "verified": true,
+     "evidence": "Per file, (reason, threshold) counts: v3 {('ml_fusion',4.1099):561, ('trusted_microsoft_signature',None):30}; v31 {('ml_fusion',3.9006):561, (...,None):30}; v32 {('ml_fusion',3.9456):561, (...,None):30}. In every file, 0 ml_fusion rows where verdict != (score>=threshold) (also 0 with strict >). All 30 trusted_microsoft_signature rows have verdict 0 and no threshold. Thresholds agree with train_v31.log (t=3.9006) and train_v32.log (t=3.9456); v32_course_once.json carries the unrounded 3.9455621776096166.",
+     "severity": "info"
+    },
+    {
+     "claim": "Claim 4: for all 8 robustness keys v3.2's v3_tpr is strictly greater than v3's; triples (v3, v31, v32) with n.",
+     "verified": true,
+     "evidence": "All three robustness JSONs have the same 8 keys in the same order, n=349 each, v2_tpr identical across files, and every v3_tpr is an exact k/349 fraction. Triples (v3, v31, v32) as hits/349: clean (306, 329, 326) = (0.8768, 0.9427, 0.9341); overlay_64k (315, 324, 324) = (0.9026, 0.9284, 0.9284); overlay_1m (298, 309, 306) = (0.8539, 0.8854, 0.8768); overlay_4m (280, 282, 284) = (0.8023, 0.8080, 0.8138); strings_10k (283, 297, 296) = (0.8109, 0.8510, 0.8481); section_inject (301, 316, 316) = (0.8625, 0.9054, 0.9054); header_copy (321, 328, 328) = (0.9198, 0.9398, 0.9398); cert_blob (311, 326, 320) = (0.8911, 0.9341, 0.9169). v32 > v3 strictly on all 8. Discrepancy worth noting (not part of the claim): v3.2 is BELOW v3.1 on 4 of 8 attacks (clean -3 hits, overlay_1m -3, strings_10k -1, cert_blob -6), ties on 3, and exceeds v3.1 only on overlay_4m (+2). eval_robustness.py computes v3_tpr as mean over the 349 recent_test malware minus feature-duplicates; I did not re-run the attack suite (would require re-scoring live malware).",
+     "severity": "minor"
+    },
+    {
+     "claim": "Claim 5: v32_course_once.json has tp 50, fp 0, threshold 3.9456; lowest malware score 4.4322 (4ea01cf424fc), second lowest 4.5642 (f36e5b52f5ff).",
+     "verified": true,
+     "evidence": "File contents: tp=50, fn=0, fp=0, tn=50, wrong=[], threshold=3.9455621776096166 (rounds to 3.9456). 'lowest' is an 8-entry list already sorted ascending: [4.4322,'4ea01cf424fc','unlabeled',...], [4.5642,'f36e5b52f5ff','unlabeled',...], then six Phorpiex entries 5.2932-5.353. Identical block is embedded in dataset/results/v32_review.json under course_set_scored_once.in_process. Caveat: I could not locate the code that wrote this file (no script in dataset/tools or defender_product references 'lowest'/'course_once'), so 'lowest = global minimum over all 50 malware' rests on the field name and the fact that fn=0 implies all 50 scored >= 3.9456; I did not re-score the course set because the project tracks reads of it ('reads_of_course_set_today': A, B, C) and a fourth read would violate its scored-once protocol. Both lowest-scoring malware are family 'unlabeled' with margins of only +0.49 and +0.62 over the threshold.",
+     "severity": "info"
+    },
+    {
+     "claim": "Additional: number of the 7 new v3.2 false positives with score within 0.3 of the threshold (marginal).",
+     "verified": true,
+     "evidence": "2 of 7 are marginal (score - 3.9456 < 0.3): 260354b63596 (+0.2782) and 0ce21dfa316c (+0.0079). The other 5 have margins 0.3943, 0.5037, 0.5989, 1.0279, 1.0344, i.e. their v3.2 scores rose by ~0.7-1.0 relative to v3 and are not threshold artifacts. Confirming this: if v3.2 kept its scores but used v3's threshold 4.1099 it would still flag 48/591 goodware (vs v3's 45); at 4.2456 it would flag 43. Across all 49 v3.2 goodware FPs, 6 are within 0.3 of the threshold; all 49 are ml_fusion. Note the requested check 'raise v3.2 threshold to 3.9006+0.045=3.9456' is a no-op since that is already v3.2's threshold.",
+     "severity": "info"
+    }
+   ],
+   "notes": "Scope: sealed-holdout and robustness statistics only. All five numeric claims reproduce exactly from the artifacts; no file-level discrepancies found. Work was read-only; only /tmp/review_v32/check.py was created (run with the project venv python -I). No malware bytes were read, executed or copied, and no key files were opened. Two things the parent should weigh: (a) the 7-vs-3 discordance (p=0.34, two-sided exact) is not significant and is fragile, with one file on each side within 0.01 of the v3.2 threshold; (b) the robustness win over v3 holds on all 8 attacks, but v3.2 trails v3.1 on 4 of 8 (most on cert_blob: 320 vs 326 hits of 349) and never beats it by more than 2 hits, so 'v3.2 > v3' should not be read as 'v3.2 is the most robust candidate'. The course-set 'lowest' list was accepted as written (consistent with tp=50/fn=0 and with dataset/results/v32_review.json) but not re-scored."
+  },
+  {
+   "verdict": "PASS",
+   "findings": [
+    {
+     "claim": "container_gate.sh mlsec-defender:v32 review: TP=50 FN=0 FP=0 TN=50, course p95 < 100 ms, errors=0",
+     "verified": true,
+     "evidence": "Ran `bash .../container_gate.sh mlsec-defender:v32 review` (no other heavy process; ps showed only WindowServer/Claude). Output: '[review] TP=50 FN=0 FP=0 TN=50 | TPR=100.0% FPR=0.0% | PASS | errors=0 | latency p95=38ms max=55ms'. Image sha256:cc21eb0992b0 (arm64, 764 MB), ready after 3 s, gate exit code 0, wall 17 s. Course manifest has n=100, 50 malware / 50 goodware. Log saved at /tmp/review_v32/gate_review.log.",
+     "severity": "info"
+    },
+    {
+     "claim": "Each of the 6 largest (60+ MB) benign goodware2 files answered result=0 in < 4.0 s on 1 CPU",
+     "verified": true,
+     "evidence": "Gate output: 66.8 MB 2.81 s, 65.7 MB 2.07 s, 64.5 MB 2.42 s, 64.4 MB 2.04 s, 62.6 MB 1.99 s, 62.2 MB 2.01 s, all result=0. Note the slowest (2.81 s) is 70% of the 4.0 s DF_REQUEST_BUDGET_SECONDS; an overrun answers 1 (would be a false positive on a slower grading host).",
+     "severity": "info"
+    },
+    {
+     "claim": "cgroup peak < 1024 MiB and oom_kill 0 under 1 GiB / 1 CPU / read-only",
+     "verified": true,
+     "evidence": "Gate: 'mem after course set: 195 MiB peak: 215 MiB'; 'mem peak after large files: 895 MiB oom_kill: oom_kill 0'; 'error lines in container log: 0'. Peak is 895/1024 MiB, i.e. only ~129 MiB headroom after six 60+ MB files. My own container (no network, after probes up to 32 MB) read memory.current 195 MiB, memory.peak 557 MiB, memory.events oom 0 / oom_kill 0, cpu.max 100000 100000.",
+     "severity": "info"
+    },
+    {
+     "claim": "Malformed input -> {\"result\": 1}",
+     "verified": true,
+     "evidence": "Gate probe 'MZ garbage' -> {\"result\": 1}. Independently: 0-byte body -> 200 {\"result\": 1}; 'MZ garbage' with any/no Content-Type -> 200 {\"result\": 1}; 1 B..100 KB random -> 1. BUT this does not generalize to larger non-PE bodies (see separate finding).",
+     "severity": "info"
+    },
+    {
+     "claim": "Non-PE / random bodies >= ~512 KB are answered result=0 (benign), contradicting the fail-toward-detection design statement",
+     "verified": true,
+     "evidence": "From inside the --network none container (docker exec python, /tmp/review_v32/sweep.log): random 524288 B -> {\"result\": 0}; 1 MiB, 2, 4, 8, 16, 32 MiB random -> 0; 5 MiB random -> 0 (0.20 s); 'MZ'+random 1 MiB/5 MiB -> 0; '%PDF-' + 5 MiB random -> 0; 'PK\\x03\\x04' + 5 MiB random -> 0; while zeros 5 MiB, 'A'*5 MiB, English text 5 MiB -> 1. /model counts after the sweep: unparseable=0, overrun=0 (every blob was 'scored'). Root cause reproduced via Ensemble.analyze() in a throwaway container (/tmp/review_v32/analyze_probe.log): random 5 MB -> subset 'ef', e=0.01912, f=0.56633, score 2.3893 < threshold 3.7405 -> verdict 0, reason ml_fusion. lief.PE.parse fails (pe=None), the rf_adv extractor raises, but the vendored EMBER extractor computes byte-histogram/entropy/string features on arbitrary bytes, so the 'ef' fallback fusion ML-scores non-PE blobs and the 'unparseable' branch is never reached. server.py docstring says 'unparseable input ... answers 1' and ensemble.py says 'only a file NO extractor can read is flagged'; in practice no input is ever 'unparseable'. Not a course-harness grading risk (harness posts PE files), but a lief-unparseable-yet-runnable PE would likewise be scored by EMBER byte features alone.",
+     "severity": "major"
+    },
+    {
+     "claim": "GET /model (own run: docker run --network none -m 1g --cpus 1) reports model_name 'ensemble-v32', 4 layers including 'embedded_powershell_bypass', threshold 3.9456",
+     "verified": true,
+     "evidence": "Status 200 application/json: model_name='ensemble-v32'; layers (n=4) = ['authenticode_trust(microsoft_pinned_pca)', 'authenticode_tamper', 'embedded_powershell_bypass', 'logodds_fusion(ember_gbdt, rf_adv, ember_gbdt+ember_ft_v32)']; threshold=3.9455621776096166 (rounds to 3.9456); threshold_offset 0.0; members e=ember_gbdt r=rf_adv f=ember_gbdt+ember_ft_v32; fallbacks ['ef','r']. Same values in the container's 'ready' log line. GET /health -> 200 {\"status\":\"ok\"}; GET / -> 404 {\"error\":\"not found\"}.",
+     "severity": "info"
+    },
+    {
+     "claim": "POST probes: 0-byte body, 5 MB random body, wrong Content-Type -> status codes/results",
+     "verified": true,
+     "evidence": "0-byte (octet-stream) -> 200 {\"result\": 1} (0.016 s); 0-byte no Content-Type -> 200 {\"result\": 1}; 5 MiB os.urandom (octet-stream) -> 200 {\"result\": 0} (0.201 s); 'MZ garbage' as text/plain -> 200 {\"result\": 1}; as application/json -> 200 {\"result\": 1}; '{\"a\":1}' application/json -> 200 {\"result\": 1}; 64 KiB random multipart/form-data -> 200 {\"result\": 1}; 465,784-byte benign course PE as octet-stream/text/plain/application/json/x-www-form-urlencoded/no header -> 200 {\"result\": 0} each. Wrong Content-Type is never rejected: server.py logs 'non_octet_content_type' and scores the body anyway (by design, documented in do_POST). POST /model -> 404 JSON; PUT / -> 501 stdlib HTML error page.",
+     "severity": "info"
+    },
+    {
+     "claim": "Container runs as a non-root user",
+     "verified": true,
+     "evidence": "docker exec id -> uid=10001(defender) gid=999(defender); /proc/1/status Name: python, Uid 10001, Gid 999; docker inspect Config.User=10001; Dockerfile has 'useradd ... -u 10001 defender' and 'USER 10001'. Cmd=[python -m defender.ensemble_server], exposed 8080/tcp. docker diff on my container showed only /tmp changes (the benign sample I copied in); nothing written under /app.",
+     "severity": "info"
+    },
+    {
+     "claim": "/app/defender contains exactly 11 .py files and /app/models exactly {rf_adv, ember_gbdt, ember_ft_v32, fusion_v32.json}",
+     "verified": true,
+     "evidence": "ls -A /app/defender: __init__.py cmdline.py ember_compat.py ember_features.py ensemble.py ensemble_server.py features.py hashing.py model.py server.py trust.py; `ls | grep -c '\\.py$'` = 11; `ls -A | grep -v '\\.py$'` returned nothing (exit 1). ls -A /app/models: ember_ft_v32 ember_gbdt fusion_v32.json rf_adv (4 entries). find /app -name __pycache__ -o -name '*.pyc' | wc -l = 0. /app also holds LICENSE.upstream and requirements.ensemble.txt.",
+     "severity": "info"
+    },
+    {
+     "claim": "Zip contains Dockerfile, requirements.ensemble.txt, defender/ (11 modules), models/{rf_adv, ember_gbdt, ember_ft_v32, fusion_v32.json}, LICENSE.upstream and nothing else (no __pycache__, keys, samples)",
+     "verified": false,
+     "evidence": "unzip -l / zipinfo on mlsec-defender-submission-v32.zip (45,029,858 bytes, sha256 94f80bf5e53b3c505b8d1ef8f25f048d5acea3223cb3061ad7df8cfd531b2776): 33 entries = 5 directories + 28 files. Present: Dockerfile, requirements.ensemble.txt, LICENSE.upstream, defender/ with exactly 11 .py modules, models/rf_adv (10 files), models/ember_gbdt/ember_gbdt.txt, models/ember_ft_v32/ember_ft.txt, models/fusion_v32.json. No __pycache__, .pyc, key/secret/token files, .bin/.exe/.dll samples, .git or .DS_Store (grep over the entry list returned nothing). ONE extra entry beyond the stated list: `.dockerignore` (118 bytes; content is an allow-list '*', '!Dockerfile', '!requirements.ensemble.txt', '!defender/**', '!models/**', '!LICENSE.upstream', '**/__pycache__'). Harmless and arguably useful, but the literal 'nothing else' claim is not met.",
+     "severity": "minor"
+    },
+    {
+     "claim": "Dockerfile inside the zip references ember_ft_v32 and fusion_v32.json and nothing v31/v3",
+     "verified": true,
+     "evidence": "Zip Dockerfile: ENV DF_EMBER_FT=/app/models/ember_ft_v32/ember_ft.txt, DF_FUSION=/app/models/fusion_v32.json; COPY models/ember_ft_v32 and COPY models/fusion_v32.json; CMD python -m defender.ensemble_server; USER 10001. grep finds no 'v31' and no v3 artifact; the only 'v3' token is the header comment '# v3.2 defender' and the 'docker build -t mlsec-defender:v32' comment. docker history of mlsec-defender:v32 shows the identical ENV/COPY/USER/CMD sequence. Note: the zip Dockerfile is NOT the same file as defender_product/Dockerfile on the host (sha 70f39a1c... vs 473164d4...; the host one is the older single-model rf_adv/defender.server Dockerfile), so the image was built from the zip-style Dockerfile, not from defender_product/Dockerfile. Shipped docstrings still say 'v3 detector' (ensemble.py:2) and 'v3.1' (cmdline.py:1, trust.py:24-47) \u2014 cosmetic.",
+     "severity": "info"
+    },
+    {
+     "claim": "sha256 of models/fusion_v32.json inside the zip equals defender_product/models/fusion_v32.json",
+     "verified": true,
+     "evidence": "Zip copy: 901b1330be79feff2442ab79bd860688780ad16e78e4d04dc2aca2130564414b; host defender_product/models/fusion_v32.json: 901b1330be79feff2442ab79bd860688780ad16e78e4d04dc2aca2130564414b; container /app/models/fusion_v32.json: same. File declares version 'v32', efr threshold 3.9455621776096166, coef [0.2199, 0.3716, 1.2236], intercept 2.4655, ft_rounds 800, malware_rows 1705. Additionally all 28 payload files (defender/, models/, requirements.ensemble.txt, LICENSE.upstream) are sha256-identical between the zip and the running image's /app, and the 11 zip modules are byte-identical to defender_product/defender/ (host has two extra unshipped modules, ember2024.py and v5_server.py).",
+     "severity": "info"
+    }
+   ],
+   "notes": "Commands/artifacts: gate log /tmp/review_v32/gate_review.log; HTTP probes run inside the --network none container via `docker exec -i review_v32_own python - < /tmp/review_v32/probe.py` (log probe.log) and sweep.py (sweep.log); analyze() reproduction via `docker run --rm -i --network none -m 1g --cpus 1 --entrypoint python mlsec-defender:v32 - < /tmp/review_v32/analyze_probe.py` (analyze_probe.log); zip extracted read-only to /tmp/review_v32/zipx. Only a benign course goodware sample was copied into my container's /tmp; no malware bytes were copied, executed or uploaded; no repository files were modified; the review container was removed afterwards. Overall: every gate expectation and the (a)/(c)/zip-hash claims reproduce exactly. Two deviations: (1) 'malformed input -> 1' holds only for small/low-entropy junk; high-entropy non-PE bodies >= ~512 KB are classified benign through the EMBER-only 'ef' fallback (never 'unparseable'), which contradicts the fail-toward-detection wording in server.py/ensemble.py though it is not a course-harness grading risk; (2) the zip contains one unlisted extra file, .dockerignore. Memory headroom after the largest benign files is thin (895 of 1024 MiB)."
+  },
+  {
+   "verdict": "PASS",
+   "notes": "Independent verification of the v3.1 deterministic layers (legacy MS PCA pins + embedded hidden-PowerShell tell). Official suite: `.venv/bin/python -m unittest tests.test_v31 -v` => 18/18 OK, including the model-backed EnsembleV31Test (DF_* models present). I wrote my own checks importing from defender/ (scripts+logs in /tmp/review_v32/: check_1to4.py/.log, check_5and6.py/.log, unittest_v31.log). All six claims reproduced exactly from the repo artifacts; I could not refute any. Two minor non-refuting caveats recorded below. Live-malware dirs were read-only (open(...,'rb')); nothing executed, copied, modified, or committed; secret files not touched. Verdict PASS = the candidate's claims for this slice hold.",
+   "findings": [
+    {
+     "claim": "Claim 1: PINNED_PCA_FULL contains the 2006 sha256 930c1e42359239558adce064b019473db84dd09b9f3fc6586d099dc222a5a392 and 2000 sha256 6a3c4d89cd6297023831b9c4f718ce71cf8753a2be49e021245ec6ba5066ff00, equal to sha256 of the two .der fixtures.",
+     "verified": true,
+     "evidence": "Both hashes are keys in trust.PINNED_PCA_FULL (values 'Microsoft Code Signing PCA (2006 issue)' / '(2000 issue)'). sha256(ms_code_signing_pca_2006.der)=930c1e42...a5a392 and sha256(ms_code_signing_pca_2000.der)=6a3c4d89...66ff00 match exactly. Dict has 7 entries; the 2010 fixture (9cbf22fa...) is also pinned. sha1s: 2006=fdd1314e..., 2000=d07ea640....",
+     "severity": "info"
+    },
+    {
+     "claim": "Claim 2: rsa_signed_by(2006 PCA, 2001 root) is True, flipping any single byte in the 2006 TBS makes it False, and sha1(root)=cdd4eeae6000ac7f40c3802c171e30148030c072.",
+     "verified": true,
+     "evidence": "rsa_signed_by(2006,root)=True; sha1(root)=cdd4eeae6000ac7f40c3802c171e30148030c072 confirmed. Exhaustive mutation of the whole TBS region offsets [4,1137): 0/1133 single-byte XOR-0x01 flips and 0/9064 single-bit flips verify as True. Also rsa_signed_by(2010,root)=True, rsa_signed_by(2000,root)=False (2000 chains to the older Microsoft Root Authority, not this root, as expected).",
+     "severity": "info"
+    },
+    {
+     "claim": "Caveat on Claim 2: for ~16 byte-flip (143 bit-flip) positions that corrupt a DER length byte, rsa_signed_by RAISES an exception rather than returning the literal False.",
+     "verified": true,
+     "evidence": "rsa_signed_by has no try/except; _cert_parts(child_der) throws on a corrupted length. Those positions never verify as True, and is_trusted_microsoft catches the exception -> not trusted, so the security property is intact; only the stated contract 'makes it False' is imprecise for those offsets. The test_v31 check flips offset 101 ('Microsoft'), which returns False cleanly.",
+     "severity": "minor"
+    },
+    {
+     "claim": "Claim 3: the 2000 and 2006 PCAs have different RSA moduli from the already-pinned 2010 re-issue, so DER pinning is necessary.",
+     "verified": true,
+     "evidence": "Via trust._cert_parts: n(2006)!=n(2010) True, n(2000)!=n(2010) True, n(2000)!=n(2006) True. 2006 and 2010 share the subject string 'CN=Microsoft Code Signing PCA' but differ in key (both 2048-bit RSA e=65537, distinct n); 2000 differs further (OID 06052b0e03021d sha1RSA, e=3). Subject-string pinning would be insufficient.",
+     "severity": "info"
+    },
+    {
+     "claim": "Claim 4: is_trusted_microsoft True for iexplore.exe, False after appending 64 zero bytes, False for Google-signed chrome.exe; the two course goodware files are trusted and become untrusted when a code byte is flipped.",
+     "verified": true,
+     "evidence": "iexplore.exe=True; +64 zero bytes=False (also False at +1/+8/+9 bytes); chrome.exe=False (signer O=Google LLC). Goodware 0e848a391107*=True (leaf issued by the 2006 pin 930c1e42...) and 980e64020cfc*=True (leaf issued by the 2000 pin 6a3c4d89...); each becomes False when a .text byte or the entry-point byte is flipped, and False with +64 bytes. The two new v3.1 pins are actually exercised by these real files.",
+     "severity": "info"
+    },
+    {
+     "claim": "Claim 5: embedded_powershell_bypass returns None for all 2118 goodware2/pe files and the 7 course samples, a string for exactly one of the 50 validation malware files (prefix 590ab5582e6a), and max scan time on the 6 largest goodware2 files < 0.5 s.",
+     "verified": true,
+     "evidence": "goodware2 = 2118 files, 0 hits; 7 samples, 0 hits; malware = 50 files, exactly 1 hit = 590ab5582e6a... ('powershell_bypass_hidden:subprocess.Popen([\"powershell.exe\",\"-NoProfile\",\"-ExecutionPolicy\",\"Bypass\",\"-WindowStyle\",\"Hidden\",...]'). 6 largest goodware2 files (62-66 MB) max scan time 0.079 s, well under 0.5 s.",
+     "severity": "info"
+    },
+    {
+     "claim": "Caveat on Claim 5 (requested robustness exercise): the tell can be made to false-trigger on benign documentation text, and is trivially evaded by obfuscation.",
+     "verified": true,
+     "evidence": "3 of 5 constructed benign documentation strings (e.g. a FAQ line listing both -WindowStyle Hidden and -ExecutionPolicy Bypass) trigger the regex -- it is a pure string match, so a goodware PE embedding such help text would fire, though no corpus file did. 7 of 7 structural obfuscations evade it (abbrev -win, options separated by >512 B, -enc-only, numeric windowstyle without a Bypass token, pwsh binary name, caret/backtick splitting, alias indirection). Consistent with cmdline.py's own docstring ('narrow, and trivially evaded by obfuscating the string, so it only ever ADDS detections'). Not a refutation of the empirical 0/goodware claim.",
+     "severity": "minor"
+    },
+    {
+     "claim": "Claim 6: the tell runs only after the trust short-circuit and the tamper rule and before the ML members; a trusted Microsoft file with the tell appended is still benign.",
+     "verified": true,
+     "evidence": "ensemble.py analyze() source order: trusted->return verdict=0; tampered->return verdict=1; tell=cmdline.embedded_powershell_bypass(...)->return verdict=1; then m={} / _ember_members / _rf_member. A trusted file returns before the tell is computed, so appended tell strings cannot change its benign verdict. test_trusted_file_is_not_scanned_for_the_tell and test_tell_fires_before_ml_on_unsigned_file both passed against the real models.",
+     "severity": "info"
+    }
+   ]
+  },
+  {
+   "verdict": "PASS",
+   "findings": [
+    {
+     "claim": "Claim 1: none of the 100 manifest sha256 appears in dataset/quarantine/index.jsonl or live_cache/meta_malware.jsonl",
+     "verified": true,
+     "evidence": "Lower-cased set intersection (/tmp/review_v32/verify.py): manifest 100 distinct sha256 (50 malware/50 goodware); index.jsonl 1705 rows/1705 distinct; meta_malware.jsonl 1705 rows/1705 distinct; index sha list == meta sha list in the same order. manifest \u2229 index = 0; manifest \u2229 meta_malware = 0. Cross-checks: hashed the 50 files in .../corrected/malware and 50 in .../goodware read-only -> 50/50 and 50/50 match manifest sha256, 0 in index; SHA256SUMS.txt set == manifest set; the 1705 archive stems in dataset/quarantine/archives \u2229 manifest = 0; meta_grading.jsonl sha set == manifest set (labels 50x'1', 50x'0', malware/goodware partition identical to manifest is_malware).",
+     "severity": "info"
+    },
+    {
+     "claim": "Hygiene caveat to claim 1: training contains 2 samples from the ORIGINAL (uncorrected) course release",
+     "verified": true,
+     "evidence": "manifest.lineage.removed_sha256 lists 6 hashes removed from the original release (README: replaced because >=5,000,000 bytes). Two of them are in index.jsonl: row 1665 sha 960b0b1d55bbea03966505540d6ddff28a3400206621c73bd9e0627f47cf8349 (Vidar, 9,037,176 B, first_seen 2026-10-06) and row 1666 sha 9515a9525a7533ba496952c8060bc7cc2794cecec2674b32adb2c7c0aa3d1a1f (Vidar, 9,049,528 B, first_seen 2026-10-05); both have source=mb_tag:stealer, i.e. they are among the 250 newly collected v3.2 samples. collect_recent_v32.log shows only '100 evaluation hashes banned from collection' (the corrected manifest), not the original 106. Not a violation of claim 1 as worded (those hashes are not in the corrected 100), but any evaluation on the original archive would be contaminated for those 2 files.",
+     "severity": "minor"
+    },
+    {
+     "claim": "Claim 2: meta_malware.jsonl has 1705 rows; X_malware.npy shape (1705, 2381) with no NaN rows; exactly 250 index rows have source starting 'mb_' and none of their sha256 is in the manifest",
+     "verified": true,
+     "evidence": "meta_malware.jsonl 1705 rows (all label 1, kind 'zip'). np.load X_malware.npy -> shape (1705, 2381), dtype float32, rows with any NaN = 0, rows with any inf = 0, all-zero rows = 0, duplicate feature rows within X = 0. index 'source' values: missing 1455, mb_tag:stealer 187, mb_type:exe 49, mb_tag:Rust 8, mb_tag:golang 5, mb_tag:Go 1 -> 250 rows start with 'mb_'; 0 of them in manifest. The 250 mb_ rows are exactly the set difference between index.jsonl and exp/quarantine_index_before_v32.jsonl (1455 rows, 0 removed). mb_ family top: Vidar 77, WARDENStealer 57, untagged 43, SalatStealer 28, RemusStealer 11 (matches collect_recent_v32.log). Info: 2 rows carry nfs_err 'PE parser rejected input' (row 1113 BlackCat; row 1456 'untagged', one of the new mb_ rows) and have only 498 nonzero features (training min 310, p1 448, median 704) - retained, not NaN.",
+     "severity": "info"
+    },
+    {
+     "claim": "Claim 3: no X_malware row is feature-identical (np.isclose atol=1e-6) to any grading malware row; min L2 and count of rows within L2<1.0",
+     "verified": true,
+     "evidence": "X_grading.npy shape (100, 2381), 50 malware rows per meta_grading label=='1' (identical to manifest malware set). Rows of X_malware with np.isclose(row, g, atol=1e-6).all() for some grading malware row: 0 (also 0 with rtol=0, 0 with exact ==, and 0 against any grading row incl. goodware). Direct per-pair np.linalg.norm over all 1705x50 pairs: minimum L2 = 2.4495186724073035 between training row 411 (sha f634762210e39bf8b8f436b40ee1cb122431f5558f96465c9f2e01cd8856296d, NanoCore, 207,872 B, src=None) and grading row 10 (sha 176e3b8bb480955589c292be9e74c38fb08ba73046c3e3016597384337f95efe, NanoCore, 207,872 B). Training rows with min L2 < 1.0 to a grading malware row: 0. train_v32.log line 1 ('feature-identical to a grading malware sample: 0 training rows dropped') is consistent.",
+     "severity": "info"
+    },
+    {
+     "claim": "Near-duplicate caveat to claim 3: the L2<1.0 criterion is uninformative at this feature scale; 23 training NanoCore rows are near-duplicates of 2 grading NanoCore samples",
+     "verified": true,
+     "evidence": "Counts of training rows by min L2 to a grading malware row: <1.0: 0; <10: 4; <100: 23; <1000: 34. All 23 rows under 100 are family NanoCore, file_size 207,872, one shared imphash f34d5f2d4577ed6d9ceec516c1f5a744, source=None (present since v3/v3.1), matched to grading rows 10 and 25 (both NanoCore, 207,872 B, first_seen 2026-10-06). Closest pair differs in only 386 of 2381 features, almost all by ~1e-4 (normalized histogram bins) with 1 feature differing by >1; relative L2 1.7e-9. Scale reference: per-feature max in X is 4.25e9; median nearest-training L2 over the 50 grading malware rows is 2.38e5; nearest training row to ANY grading goodware row is 4.6e5. Per-row nearest distances for grading malware sorted: [2.45, 5.92, 29494.8, 29497.1, ...] - i.e. 2 of 50 grading malware samples are effectively present in training as same-size/same-imphash NanoCore builds. Also note: a Gram-matrix (x^2+y^2-2xy) distance computation returns 0.0 for a pair whose true distance is 17.06 at this scale; direct norms were used for all reported numbers.",
+     "severity": "major"
+    },
+    {
+     "claim": "Claim 4: fusion_v32.json fit_set {malware 349, goodware 4497, goodware_exe 432}, ft_rounds 800, malware_rows 1705; efr threshold equals train_v32.log '[efr] ... t=...'; fusion_v31.json and fusion.json have the same fit_set",
+     "verified": true,
+     "evidence": "fusion_v32.json: fit_set {\"malware\": 349, \"goodware\": 4497, \"goodware_exe\": 432}, ft_rounds 800, malware_rows 1705, models.efr.threshold 3.9455621776096166, coef [0.21987, 0.37155, 1.22357], intercept 2.46549. train_v32.log line 3: '[efr] coef=[0.2199, 0.3716, 1.2236] b=2.4655 t=3.9456' -> equal at the log's 4-decimal precision (exact equality cannot be checked from the rounded log). ember_ft_v32/ember_ft.txt contains exactly 800 trees (grep -c '^Tree=' = 800, last Tree=799; v31 also 800, v3 ember_ft 200). fusion_v31.json fit_set = {349, 4497, 432}; fusion.json (v3) fit_set = {349, 4497, 432} -> identical across versions. Internal consistency: fit_fpr_all 0.00088948 = 4/4497, fit_fpr_exe 0.0092593 = 4/432, fit_tpr 0.84527 = 295/349. File mtimes: fusion_v32.json 2026-10-20 20:47:40, ember_ft_v32 20:47, train_v32.log 20:47 (same run).",
+     "severity": "info"
+    },
+    {
+     "claim": "Claim 5: family overlap between index.jsonl 'family' and manifest 'family' is exactly NanoCore (40/2) and RemusStealer (11/1), and Phorpiex is absent from training",
+     "verified": true,
+     "evidence": "Manifest malware families: Phorpiex 40, '' (empty string) 7, NanoCore 2, RemusStealer 1 (all 50 entries have the key; goodware entries do not). Exact-string and case-insensitive intersection with index.jsonl family: NanoCore (index 40 / manifest 2), RemusStealer (index 11 / manifest 1); no other family in both; no substring overlaps. meta_malware.group matches index.family on every row (0 mismatches; NanoCore 40, RemusStealer 11). Phorpiex: 0 index rows with family or reported_signature containing 'phorpiex', 0 meta_malware groups, absent from dataset/quarantine/families.json (38 families). Info: 6 training rows (family CoinMiner, rows 1296, 1320, 1322, 1323, 1325, 1333) carry the tag 'dropped-by-phorpiex' - Phorpiex-dropped payloads, not Phorpiex itself. All 11 RemusStealer training rows come from the v3.2 mb_ collection (first_seen 2026-09-17..2026-10-21); the grading RemusStealer row's nearest training row is QuasarRAT at L2 7.3e5 (nearest training Remus 6.9e6), so no near-duplicate there. The 40 Phorpiex grading rows' nearest training family is mostly njrat (23/40), min L2 2.9e4.",
+     "severity": "info"
+    }
+   ],
+   "notes": "All work was read-only; scratch scripts and outputs are in /tmp/review_v32/ (verify.py, verify2.py, verify3.py and *_out.txt), run with \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/.venv/bin/python\" -I. Live-malware bytes were only opened for SHA-256 hashing inside the repo; .mb_key / malwarebazaarkey.txt were never touched. Verdict PASS: every numeric claim in the slice reproduces exactly from the named artifacts. Two caveats the write-up should carry: (1) the 'L2 < 1.0' near-duplicate criterion is meaningless at EMBER feature scale - 23 NanoCore training rows (pre-existing, source=None) are near-identical builds of grading NanoCore rows 10 and 25 (min L2 2.45, differing in ~386 histogram bins by ~1e-4), so 2 of 50 grading malware samples are effectively in training; (2) two of the six hashes dropped from the original course release (lineage.removed_sha256, oversized Vidar samples) were ingested by the v3.2 collection because the ban-list only covered the corrected manifest's 100 hashes. Minor: the efr threshold match to the log is only verifiable to 4 decimals; 2 training rows have failed PE parses (498 nonzero features) but are retained."
+  },
+  {
+   "verdict": "FAIL",
+   "findings": [
+    {
+     "claim": "V32 \u00a71 Source: new samples by query = stealer 170, Rust 8, golang 5, Go 1, recent-EXE feed 49 (total 250)",
+     "verified": false,
+     "evidence": "CONTRADICTED. Computed from dataset/quarantine/index.jsonl (1705 rows) minus dataset/work/exp/quarantine_index_before_v32.jsonl (1455 rows): 250 new rows with source mb_tag:stealer=187, mb_type:exe=49, mb_tag:Rust=8, mb_tag:golang=5, mb_tag:Go=1. The doc's 170 is wrong (its five numbers sum to 233, not 250); the author's own v32_review.json new_samples.by_query also says stealer 187.",
+     "severity": "major"
+    },
+    {
+     "claim": "V32 \u00a71 Families: Vidar 61, WARDENStealer 57, untagged 43, SalatStealer 28, RemusStealer 10, RustyStealer 4, VShell 3, njrat 3, Aokigahara 3, BridgeAgent 2, ValleyRAT 1, GCleaner 1",
+     "verified": false,
+     "evidence": "CONTRADICTED on two counts and truncated. Index 'family' field over the 250 new rows: Vidar 77 (doc 61), RemusStealer 11 (doc 10); WARDENStealer 57, untagged 43, SalatStealer 28, RustyStealer 4, VShell 3, njrat 3, AokigaharaStealer 3, BridgeAgent 2, ValleyRAT 1, GCleaner 1 match. The doc's list sums to 216 of 250 without saying it is truncated; 17 singleton families are omitted (LabubaRAT, OverlordRAT, LummaStealer, PantherStealer, ChickenStealer, CherryStealer, AudaxStealer, YamiStealer, TakerStealer, SeroRAT, SentinelStealer, RevStealer, JJMStealer, GiaPhucStealer, AntigravityAdvancedStealer, SilentNet, CoinMiner). collect_recent_v32.log and v32_review.json both say Vidar 77 / RemusStealer 11.",
+     "severity": "major"
+    },
+    {
+     "claim": "V32 internal consistency: \u00a71 Families row says RemusStealer 10 while \u00a71 overlap row says RemusStealer 11 train",
+     "verified": true,
+     "evidence": "Internal inconsistency within V32_STATUS.md; the index has 11 RemusStealer rows (all new in v3.2). The overlap row (11) is the correct one.",
+     "severity": "minor"
+    },
+    {
+     "claim": "V32 \u00a73 container row, v3.1 column: '49/50; 1.9\u20132.9 s; 1024 MiB' on a quiet arm64 host",
+     "verified": false,
+     "evidence": "NO ARTIFACT FOUND. No container_gate_v31*.log exists under dataset/work/exp, reports/ or session scratch; grep for 'v31quiet', '1.9\u20132.9', 'peak 1024' finds only V32_STATUS.md itself. V31_STATUS.md \u00a73 reports v3.1 container as p95 341 ms / peak 357 MiB on the course set and 12\u201316 s on the 60\u201367 MB files under load, 'to be re-measured on a quiet machine' \u2014 V32 asserts that re-measurement without any log. Inconsistent between the two documents.",
+     "severity": "major"
+    },
+    {
+     "claim": "V32 \u00a73 container row, v3 column: '48/50; 60 MB files 3.0\u20136.0 s; peak 1024 MiB'",
+     "verified": false,
+     "evidence": "PARTLY CONTRADICTED by sibling docs. V4_STATUS.md and V31_STATUS.md both state the v4 review measured frozen v3 at 2.6\u20133.4 s per 60+ MB file on arm64. v4_review.json (arm64) lists v3-code timings 2.6\u20135.6 s with overrun result=1 on 2\u20133 of 6 large files; v41_review.json (amd64 emulated) lists 3.76\u20135.33 s with 4 overrun FPs and memory.peak 8 KB below the 1 GiB limit. '3.0\u20136.0 s' matches neither range exactly and is attributed to the arm64/quiet-host row. 48/50 is supported (v3_results.json, v3_grading.jsonl). Missing caveat: v3 answered 1 (overrun false positive) on several large files in those reviews; the v3 cell omits this while the v3.2 cell says 'all 0'.",
+     "severity": "major"
+    },
+    {
+     "claim": "V32 \u00a73 'Container, amd64 (grading arch), emulated: 50/50, p95 120 ms, peak 976 MiB, no OOM'",
+     "verified": false,
+     "evidence": "NO INDEPENDENT ARTIFACT. Only dataset/results/v32_review.json (author-written summary) carries these numbers. No amd64 gate log exists in dataset/work/exp or reports/. docker image ls shows mlsec-defender:v32-amd64 (arch=amd64, created 2026-10-21T01:49:49Z = 20:49 local) so an amd64 image was built, but the run numbers cannot be reproduced from artifacts.",
+     "severity": "major"
+    },
+    {
+     "claim": "V32 \u00a72 'The course set was read three times today (A, B, C)'",
+     "verified": false,
+     "evidence": "CONTRADICTED by V41_STATUS.md ('Class test set, scored once for the record (2026-10-20)': v4 and v4.1 scored on the course set) and by dataset/work/exp/v4_grading.jsonl and v41_grading.jsonl (mtime Oct 20 19:07, 100 rows each, 43/50 TP). Candidate C was additionally scored in the arm64 container (container_gate_v32_quiet.log, 20:52) and per v32_review.json in an amd64 container. At least five in-process reads of the course set occurred on 2026-10-20 (v4, v4.1, A, B, C) plus container passes. None are selection events, but the count is understated.",
+     "severity": "major"
+    },
+    {
+     "claim": "V32 \u00a73 'Grouped 10\u00d75 CV TPR at the 0.75 % fit-FPR rule' = 85.3 \u00b1 4.2 (EXE 87.3) for v3.2; 83.5 \u00b1 4.1 (v3); 87.1 \u00b1 4.0 (v3.1); MET vs v3 (+1.8)",
+     "verified": true,
+     "evidence": "Numbers SUPPORTED: fusion_v32.json cv_estimate tpr 0.85336, tpr_sd 0.04221, tpr_exe 0.87309; fusion.json 0.83500/0.04112; fusion_v31.json 0.87110/0.03996; train_v32.log 'CV (10x5, dedup'd): TPR 0.853\u00b10.042 (EXE malware 0.873)'. LABEL OVERSTATED: train_v31.py step 4 is 'repeated stratified 5-fold CV' with random row-level folds (protocol string '10x stratified 5-fold, threshold on train folds'); only the f-member OOF scores (step 1) are family-grouped. The CV refits only the logistic fusion + threshold over fixed member scores, on the same 349 malware / 4,497 goodware as v3, so it cannot measure any new-family benefit of the 250 added samples.",
+     "severity": "minor"
+    },
+    {
+     "claim": "V32 \u00a73 'FPR-EXE 1.09 \u2192 1.14 %'",
+     "verified": true,
+     "evidence": "v3 cv fpr_exe 0.010879 = 1.09 % (supported). v3.2 cv fpr_exe 0.0113499 = 1.13 % (train_v32.log prints 1.135 %); the doc's 1.14 % is a rounding slip of 0.01 pt.",
+     "severity": "minor"
+    },
+    {
+     "claim": "V32 \u00a73 'same 349 / 4,497 fit rows'",
+     "verified": true,
+     "evidence": "SUPPORTED: fit_set {malware 349, goodware 4497, goodware_exe 432} identical in fusion.json, fusion_v31.json and fusion_v32.json.",
+     "severity": "info"
+    },
+    {
+     "claim": "V32 \u00a73 sealed holdout: v3 45/591 = 7.61 % / 43/465 = 9.25 %; v3.1 45/43; v3.2 49/591 = 8.29 % / 47/465 = 10.11 %; 10 discordant (7 new FPs, 3 fixed); McNemar p \u2248 0.34; same 591 files / 465 EXE",
+     "verified": true,
+     "evidence": "SUPPORTED, recomputed from v3_/v31_/v32_goodware2_holdout.jsonl: n=591 (identical sha256 sets across all three), is_exe=465, flagged 45/45/49 (7.614 %/7.614 %/8.291 %), EXE flagged 43/43/47 (9.247 %/9.247 %/10.108 %); v3\u2192v3.2 discordant: 7 new FPs, 3 fixed (all EXE); exact two-sided McNemar p = 0.3438. Thresholds in files 4.1099/3.9006/3.9456 match the fusion JSONs. Caveat: 30/591 holdout files are trusted_microsoft (reason 'trusted_microsoft_signature'), so 'unsigned third-party' applies to 561 of them; 291 product groups (V31_STATUS says '294-product list', V4_STATUS says 291 \u2014 V31 is inconsistent with the data).",
+     "severity": "info"
+    },
+    {
+     "claim": "V32 \u00a73 robustness rows (8 numbers each for v3 / v3.1 / v3.2, n=349) and 'better than v3 on all 7 (+1.1 \u2026 +5.7)'",
+     "verified": true,
+     "evidence": "All 24 numbers SUPPORTED by robustness_v3.json, robustness_v31.json, robustness_v32.json (n=349 each): v3 87.7/90.3/85.4/80.2/81.1/86.2/92.0/89.1; v3.1 94.3/92.8/88.5/80.8/85.1/90.5/94.0/93.4; v3.2 93.4/92.8/87.7/81.4/84.8/90.5/94.0/91.7. v3.2\u2212v3 deltas: +5.7, +2.6, +2.3, +1.1, +3.7, +4.3, +2.0, +2.6 (all positive).",
+     "severity": "info"
+    },
+    {
+     "claim": "V32 \u00a73 robustness: '1\u20132 pts under v3.1 on 4 of 7'",
+     "verified": false,
+     "evidence": "IMPRECISE. v3.2 vs v3.1: clean \u22120.86, overlay_64k 0, overlay_1m \u22120.86, overlay_4m +0.57, strings_10k \u22120.29, section_inject 0, header_copy 0, cert_blob \u22121.72. Under v3.1 on 3 of the 7 attacks (4 of 8 rows counting 'clean'), by 0.3\u20131.7 pts, not '1\u20132 pts on 4 of 7'.",
+     "severity": "minor"
+    },
+    {
+     "claim": "V32 \u00a73 recent_test detection (433): 89.6 % / 95.4 % / 94.5 %",
+     "verified": true,
+     "evidence": "SUPPORTED, recomputed: dataset/work/recent_test.jsonl has 433 label-1 rows (493 total); restricting v3_malware.jsonl, v31_malware_holdout.jsonl, v32_malware_holdout.jsonl to those sha256: 388/433 = 89.61 %, 413/433 = 95.38 %, 409/433 = 94.46 %. recent_test \u2229 new haul = 0. Note these 433 are in-sample for ember_ft (caveat is given in the doc).",
+     "severity": "info"
+    },
+    {
+     "claim": "V32 \u00a73 container arm64 quiet: 50/50, p95 40 ms; 60 MB files 2.0\u20132.9 s all 0; peak 896 MiB; no OOM; malformed \u2192 1; log clean",
+     "verified": true,
+     "evidence": "SUPPORTED by dataset/work/exp/container_gate_v32_quiet.log: TP=50 FN=0 FP=0 TN=50, p95=40 ms max=59 ms, six files 62\u201367 MB at 2.87/2.09/2.44/2.05/1.98/1.99 s all result=0, 'mem peak after large files: 896 MiB oom_kill 0', malformed \u2192 {\"result\": 1}, 'error lines in container log: 0', image sha256:cc21eb0992b0 (matches docker image ls). Caveat: the log shows '(1 CPU)' only; the docker flags (1 GiB, read-only) are not in the log and the gate script that produced it is not in the repository.",
+     "severity": "info"
+    },
+    {
+     "claim": "V32 \u00a73 'Build from the submission zip alone: builds; image contains only the 11 serving modules and the 4 shipped model artefacts'",
+     "verified": true,
+     "evidence": "SUPPORTED (build not re-run by me): mlsec-defender-submission-v32.zip lists 11 defender/*.py modules and 4 model artefacts (rf_adv/, ember_gbdt/, ember_ft_v32/, fusion_v32.json); submission Dockerfile COPYs exactly those; sha256 of ember_gbdt.txt, rf_adv/*, ember_ft_v32/ember_ft.txt, fusion_v32.json identical between repo and zip (rf_adv and ember_gbdt therefore unchanged, as claimed); docker image mlsec-defender:v32-fromzip exists (arm64, created 2026-10-21T01:48:59Z). The repo's defender/ has 2 extra modules (ember2024.py, v5_server.py) and vendor_ember2024/ that are excluded from the zip.",
+     "severity": "info"
+    },
+    {
+     "claim": "V32 \u00a73 Tests 74/74",
+     "verified": true,
+     "evidence": "SUPPORTED: ran `defender_product/.venv/bin/python -I -m unittest discover -s tests -t .` \u2192 'Ran 74 tests in 4.990s OK'. 74 test functions counted across 9 test modules.",
+     "severity": "info"
+    },
+    {
+     "claim": "V32 \u00a72 course set: v3.2 50/50 TP, 0/50 FP, lowest margin +0.49 (4ea0\u2026 4.43 vs 3.95), next +0.62 (f36e\u2026); B \u22120.34; v3 \u22121.04 / \u22120.84; A \u22120.84",
+     "verified": true,
+     "evidence": "v3.2 SUPPORTED by dataset/work/exp/v32_course_once.json (tp 50, fp 0, threshold 3.94556, lowest 4.4322 '4ea01cf424fc', 4.5642 'f36e5b52f5ff' \u2192 +0.487, +0.619) and independently by the container log TP=50 FP=0. B SUPPORTED by v31_course_once.json (4ea0 3.5584 vs 3.9006 \u2192 \u22120.342). v3 SUPPORTED by v3_grading.jsonl (590a 3.0661, 4ea0 3.2687 vs 4.1099 \u2192 \u22121.044, \u22120.841). Candidate A: NO ARTIFACT (no course-once JSON; a docker image mlsec-defender:candA exists); \u22120.84 is plausible by construction since A's fusion equals v3's.",
+     "severity": "info"
+    },
+    {
+     "claim": "V32 \u00a72 'All 50 goodware are cleared by Authenticode trust in A, B and C'",
+     "verified": true,
+     "evidence": "SUPPORTED by direct check: ran defender/trust.is_trusted_microsoft on the 50 files in csce704-\u2026/goodware (benign Microsoft Sysinternals) with the current trust.py (sha256 identical to the one in the submission zip) \u2192 50/50 True. For v3, v3_grading.jsonl shows 48 trusted + 2 ml_fusion, consistent with V31 \u00a72.",
+     "severity": "info"
+    },
+    {
+     "claim": "V32 \u00a71 Hygiene: all 100 course hashes refused at collection (0 collided); 0 training rows feature-identical to a course sample; untagged grouped by imphash (30 groups); archives AES-encrypted",
+     "verified": true,
+     "evidence": "SUPPORTED: collect_recent_v32.log '100 evaluation hashes banned', 'selected 250 new PE samples (0 evaluation hashes refused)'; index.jsonl \u2229 manifest sha256 = 0 (and 0 for the pre-v3.2 index); train_v32.log 'feature-identical to a grading malware sample: 0 training rows dropped', 'untagged groups: 30'; recomputed with train_v31.py's grouping rule: 43 untagged rows \u2192 30 groups (2 with null imphash fall back to sha prefix); all 1705 archives have local-header encryption flag set, compression method 99 and the 0x9901 AES extra field (bytes read only). Caveat: the feature-identical check requires train_v31.py to load X_grading.npy, whereas its docstring still says 'the grading set is never loaded'.",
+     "severity": "info"
+    },
+    {
+     "claim": "V32 \u00a71 family overlap: RemusStealer 11 train / 1 course; NanoCore 40 / 2; Phorpiex (40 course) in neither v3's nor v3.2's training; overlap existed in v3 already",
+     "verified": true,
+     "evidence": "SUPPORTED: index.jsonl RemusStealer 11, NanoCore 40 (all 40 already in quarantine_index_before_v32.jsonl), Phorpiex 0; course manifest 'family': Phorpiex 40, NanoCore 2, RemusStealer 1, blank 7.",
+     "severity": "info"
+    },
+    {
+     "claim": "V32 \u00a71 'first seen 2026-08-01 \u2026 2026-10-21'; \u00a74 'only 8 were Rust-tagged'; 'EMBER-2018 scores the fresh haul 0.26 on average'; v3.1 miss 'scored 0.11 by EMBER-2018', 'Rust-built loader'",
+     "verified": true,
+     "evidence": "SUPPORTED: new-row first_seen min 2026-08-01 23:33:16, max 2026-10-21 01:01:58 (MalwareBazaar UTC, hence a 10-21 stamp on a 10-20 doc); 8 rows from query mb_tag:Rust (9 new rows carry a 'rust' tag in their tag list); mean 'e' over the 246 fresh-haul rows present in v32_malware_holdout.jsonl = 0.2628 (median 0.019); 4ea0 e = 0.110508 in v31/v32_course_once.json. Read-only lief parse of the 4ea0 course sample: AMD64, unsigned, compiled 2026-10-09, imports WaitOnAddress and NtReadFile, .rdata 750,420 B at entropy 6.22, 279 KB resources \u2014 matches V31 \u00a75.",
+     "severity": "info"
+    },
+    {
+     "claim": "V32 \u00a74 'The command-line tell is a signature (0.5 % of malware)'; V31 says 0.3 %",
+     "verified": true,
+     "evidence": "SUPPORTED for each doc's own run: v32_malware_holdout.jsonl reason embedded_powershell_bypass 8/1705 = 0.47 %; v31 5/1455 = 0.34 %. Unexplained: v32_review.json tell_precision.malware_hits says '8/1686' (denominator \u2260 1705). The '0 / 13,503 goodware' precision figure (V31 \u00a71, repeated in v32_review.json) has no log artifact in the repo.",
+     "severity": "minor"
+    },
+    {
+     "claim": "V32 \u00a74 'Holdout FPR ... ~10 % and got 0.9 pt worse'; README 'sealed-holdout FPR 9.25 % \u2192 10.1 %'; README '800 rounds on 1,705 recent malware'; README/V32 '(v3: 48/50; v3.1: 49/50)'",
+     "verified": true,
+     "evidence": "SUPPORTED: 10.108 \u2212 9.247 = 0.86 pt; fusion_v32.json ft_rounds 800, malware_rows 1705 (1455 + 250); v3_results.json tp 48, v31_course_once.json tp 49.",
+     "severity": "info"
+    },
+    {
+     "claim": "V32 \u00a71/\u00a75: tag list 'Rust, golang, Nim, NET, loader, dropper, stealer' targets the drift; 'MalwareBazaar caps tag and feed queries at ~100\u2013200 rows'",
+     "verified": false,
+     "evidence": "MISSING CAVEAT. collect_recent_v32.log shows tag:loader and tag:dropper were SKIPPED after 4\u00d7 HTTP 502 and tag:Nim/nim/NET yielded no new rows; the haul is effectively stealer + Rust/golang/Go + the EXE feed. Neither \u00a71 nor \u00a75 discloses this, and the \u00a75 collect command (which lists loader/dropper) would not reproduce the haul. The cap statement is loose: the collector's --limit defaults to 1000 ('API max 1000') and tag:stealer returned 266 rows, golang 198.",
+     "severity": "minor"
+    },
+    {
+     "claim": "V32 \u00a75 reproduce commands refer to existing files and options",
+     "verified": true,
+     "evidence": "All referenced files exist: dataset/tools/collect_mb_recent.py (--out, --file-types, --tags, --since, --exclude-manifest present), build_live_cache.py (--corpora), train_v31.py (--rounds, --tag), eval_v3.py (--variant with 'v32' in VARIANTS, --corpora, --only-groups), eval_robustness.py (ROBUST_VARIANT env, 'v32' in VARIANTS), defender_product/Dockerfile.ensemble, dataset/work/exp/v4_holdout_eval_groups.json, the course manifest, the venv python. GAPS: \u00a75 omits the unit-test command and the container-gate script; the script that produced container_gate_v32_quiet.log / the amd64 numbers is not in the repository, so the container rows are not reproducible from \u00a75.",
+     "severity": "minor"
+    },
+    {
+     "claim": "V32 \u00a74 'The sealed holdout has been read four times (v4, v4.1, v3.1, v3.2)'",
+     "verified": true,
+     "evidence": "Consistent with V31 ('three times') plus v3.2, counting review events. Note v3 was also scored on the holdout as the reference in the v4/v4.1 reviews (v3_goodware2_holdout.jsonl, Oct 19), so by candidate-scorings the count is higher; no threshold selection on it is evidenced.",
+     "severity": "info"
+    },
+    {
+     "claim": "V32 header: branch release/sure-shot-v3.1 (this tree)",
+     "verified": true,
+     "evidence": "Local branch release/sure-shot-v3.1 tip 29783bf (2026-10-20 20:56 'v3.2: 50/50 ...') contains V32_STATUS.md, V31_STATUS.md, defender_product/README.md and v32_review.json byte-identical to the working tree. Caveat: the checkout's HEAD is an unborn 'main' (no commits) with dataset/ and defender_product/ untracked, so the working tree is not actually checked out on that branch.",
+     "severity": "info"
+    }
+   ],
+   "notes": "Scope: documentation audit of V32_STATUS.md, V31_STATUS.md and the v3.2 note in defender_product/README.md against the listed artifacts. Headline results all reproduce from artifacts (course 50/50 & margins, CV 85.3\u00b14.2, holdout 49/591 & 47/465 with McNemar p=0.344, all 24 robustness numbers, recent_test 89.61/95.38/94.46 on n=433, arm64 container log, 74/74 tests re-run by me, 50/50 course goodware trust-cleared re-checked by me, hygiene counts, family overlap). The FAIL verdict is for documentation accuracy, not for the ship decision's core evidence: (1) \u00a71 data-provenance counts are wrong (stealer 170\u2192187, Vidar 61\u219277, RemusStealer 10\u219211, family list silently truncated to 216/250) and contradict the author's own v32_review.json and collect log; (2) two \u00a73 container cells (v3.1 quiet-host row; amd64 row) have no artifact beyond the author's summary JSON, and the v3 cell's '3.0\u20136.0 s' conflicts with V4_STATUS/V31_STATUS's '2.6\u20133.4 s'; (3) 'read three times today' is contradicted by V41_STATUS (v4/v4.1 scored on the course set the same day) and the container passes; (4) 'Grouped' CV mislabels a row-level stratified CV; (5) loader/dropper tag failures (HTTP 502) are undisclosed; (6) \u00a75 omits the test and gate commands and the gate script is absent from the repo. Minor rounding: FPR-EXE 1.13 % not 1.14 %; robustness 'under v3.1 on 4 of 7 by 1\u20132 pts' is actually 3 of 7 attacks by 0.3\u20131.7 pts. Commands/scripts: /tmp/review_v32/audit.py, /tmp/review_v32/audit2.py (outputs audit_out.txt, audit2_out.txt) \u2014 index/manifest/holdout/recent_test recomputation; unittest run from defender_product; trust-layer check on the 50 course goodware only; read-only lief parse of the 4ea0 sample bytes; zip header inspection of quarantine archives; shasum comparisons repo vs submission zip; docker image ls/inspect (read-only); git branch/log/ls-tree (read-only). Nothing in the repository was modified, no sample was executed or copied, .mb_key/malwarebazaarkey.txt were not read. Note: reports/verification-v32-2026-10-20/ and a container_gate.sh in the session scratchpad were created by sibling verifiers of this workflow, not by the author, and were not used as supporting evidence."
+  },
+  {
+   "ship": true,
+   "blocking_issues": [
+    "[docs_audit, \u00a73 amd64 row; container verifier ran arm64 only] The grading-architecture gate ('50/50, p95 120 ms, peak 976 MiB, no OOM') has no artifact: the numbers exist only in the author-written dataset/results/v32_review.json, no amd64 gate log exists under dataset/work/exp or reports/, and the independent container run (TP=50 FN=0 FP=0 TN=50, p95 38 ms, max 55 ms, peak 215 MiB on the course set, oom_kill 0) was on the arm64 image sha256:cc21eb0992b0. An image mlsec-defender:v32-amd64 exists (created 2026-10-21T01:49:49Z), so the build is not in doubt and a different verdict is unlikely (all 50 goodware are cleared deterministically by the trust layer; lowest malware margin +0.49 logits), but the 'MET on decisions' cell is unsupported for the architecture the grade will be computed on. Required before submission: re-run the gate on the amd64 image built from mlsec-defender-submission-v32.zip, save the log beside container_gate_v32_quiet.log with the docker flags, and report course-set peak memory separately from the large-file peak (976 MiB leaves 48 MiB under the 1 GiB limit if that is the large-file phase).",
+    "[docs_audit, \u00a72] 'The course set was read three times today (A, B, C)' is false. V41_STATUS.md ('Class test set, scored once for the record (2026-10-20)') and dataset/work/exp/v4_grading.jsonl / v41_grading.jsonl (mtime 2026-10-20 19:07, 100 rows each, 43/50 TP) show v4 and v4.1 were scored in-process on the course set the same day, and candidate C was additionally scored through the container at least three times (container_gate_v32_quiet.log 20:52, the amd64 run, the independent review gate). At least five in-process reads plus container passes. None was a selection event, but understating the number of looks at the graded set under a 'scored once' protocol is a reporting-integrity defect and must be corrected.",
+    "[docs_audit, \u00a73 container arm64 row] Baseline container cells are unsupported or contradicted. v3.1 column '49/50; 1.9\u20132.9 s; 1024 MiB' has no log anywhere (grep for the figures hits only V32_STATUS.md); V31_STATUS.md \u00a73 reports p95 341 ms / peak 357 MiB on the course set and 12\u201316 s on 60\u201367 MB files under load, 'to be re-measured on a quiet machine' \u2014 V32 asserts a re-measurement that was never recorded. v3 column '60 MB files 3.0\u20136.0 s; peak 1024 MiB' conflicts with V4_STATUS/V31_STATUS (2.6\u20133.4 s) and v4_review.json (2.6\u20135.6 s with result=1 overruns on 2\u20133 of 6 large files; v41_review.json amd64: 3.76\u20135.33 s, 4 overrun FPs) and omits that v3 answered 1 on large files while the v3.2 cell says 'all 0'. Numbers presented as measurements must be backed by a log, replaced with the documented V31/V4 figures, or removed.",
+    "[docs_audit, \u00a71; integrity claim 2] Data-provenance numbers contradict the author's own collect_recent_v32.log and v32_review.json. Actual split of the 250 new rows (index.jsonl minus quarantine_index_before_v32.jsonl): mb_tag:stealer 187 (doc 170; the doc's five query counts sum to 233, not 250), mb_type:exe 49, mb_tag:Rust 8, mb_tag:golang 5, mb_tag:Go 1. Families: Vidar 77 (doc 61), RemusStealer 11 (doc 10, and the doc's own overlap row says 11); the family list sums to 216/250 and silently omits 17 singleton families (LabubaRAT, OverlordRAT, LummaStealer, PantherStealer, ChickenStealer, CherryStealer, AudaxStealer, YamiStealer, TakerStealer, SeroRAT, SentinelStealer, RevStealer, JJMStealer, GiaPhucStealer, AntigravityAdvancedStealer, SilentNet, CoinMiner).",
+    "[integrity, near-duplicate caveat to claim 3, rated major] The hygiene gate '0 training rows feature-identical to a course malware sample (checked at training on the EMBER-2381 vector)' is literally true (0 at np.isclose atol=1e-6; 0 at L2<1.0) but the criterion cannot detect leakage at EMBER scale (per-feature max 4.25e9; median nearest-training L2 for grading malware 2.38e5). 23 training NanoCore rows (present since v3, source=None, all 207,872 B, shared imphash f34d5f2d4577ed6d9ceec516c1f5a744) are near-identical builds of grading rows 10 and 25 (nearest L2 2.45 and 5.92; the closest pair differs in 386/2381 features, almost all by ~1e-4; relative L2 1.7e-9). Two of the 50 course malware are therefore effectively in training and the 50/50 headline must say so. This is inherited from v3 (not from the 250-sample haul) and does not change the grade, but presenting the atol-1e-6 check as the leakage gate while stating only 'family overlap' is misleading."
+   ],
+   "non_blocking_issues": [
+    "[container, 'Non-PE / random bodies' finding, rated major] High-entropy non-PE bodies >= ~512 KB (os.urandom 0.5\u201332 MiB; 'MZ'+random; '%PDF-'+random; 'PK\\x03\\x04'+random) are answered {\"result\": 0}: lief returns None and rf_adv raises, but the vendored EMBER extractor computes histogram/entropy/string features on any bytes, so the 'ef' fallback ML-scores the blob (5 MB random: e=0.019, f=0.566, score 2.39 < threshold) and /model shows unparseable=0 after the sweep. This contradicts server.py ('unparseable input ... answers 1'), ensemble.py ('only a file NO extractor can read is flagged') and the \u00a73 cell 'malformed \u2192 1' (true only for 0 B\u2013100 KB junk, zeros, 'A'*5 MiB, English text). Not a grading risk (the harness posts PE files), but the design statement is wrong and a lief-unparseable PE would likewise be scored by EMBER bytes alone.",
+    "[container claim 3; docs_audit] Memory headroom after six 60+ MB benign files is thin: cgroup peak 895 MiB (verifier) / 896 MiB (quiet log) of 1024 MiB on arm64, i.e. ~128 MiB; the author's amd64 figure is 976 MiB (48 MiB). Not a grading-set risk: the corrected course set replaced every file >= 5,000,000 bytes (manifest.lineage, integrity verifier) and the course-set peak is 215 MiB, but a grader with large unsigned goodware could hit OOM.",
+    "[container claim 2] Slowest 60+ MB benign file took 2.81 s (verifier) / 2.87 s (quiet log) on 1 arm64 CPU, 70 % of the 4.0 s DF_REQUEST_BUDGET_SECONDS; an overrun answers 1 (false positive) on a slower host. Not a grading-set risk (all course files < 5 MB; course p95 38\u201340 ms, max 55\u201359 ms).",
+    "[integrity, hygiene caveat to claim 1, rated minor] Two of the 250 new training samples (index.jsonl rows 1665/1666, Vidar, 9,037,176 B and 9,049,528 B, source mb_tag:stealer, sha 960b0b1d\u2026 and 9515a952\u2026) are hashes in the corrected manifest's lineage.removed_sha256, i.e. members of the ORIGINAL course release dropped for size. collect_recent_v32.log banned only the corrected 100, so '0 collided' stands and the graded set is unaffected, but any evaluation against the original archive would be contaminated for those two files. Extend --exclude-manifest to lineage.removed_sha256 and disclose.",
+    "[holdout_stats claims 2, 4, additional] The sealed-holdout regression is real but not significant and fragile: v3\u2192v3.2 discordance 7/3 on 591 files (both=42, neither=539), exact two-sided binomial p = 0.34375 (one-sided 0.17, mid-p 0.23); one discordant file on each side is within 0.01 of the v3.2 threshold (0ce21dfa +0.0079, 76beba \u22120.0010). Five of the 7 new FPs are not threshold artifacts (margins 0.39\u20131.03; v3.2 at v3's threshold 4.1099 would still flag 48/591). On robustness v3.2 beats v3 on all 8 rows but trails v3.1 on 4 of 8 (clean 326 vs 329, overlay_1m 306 vs 309, strings_10k 296 vs 297, cert_blob 320 vs 326, of 349), ties 3, and beats v3.1 only on overlay_4m (+2). v3.2 is not the most robust candidate and the doc should not be read that way.",
+    "[docs_audit, \u00a73 holdout row] 30 of the 591 holdout files are cleared by trusted_microsoft_signature (verdict 0, no threshold), so the 'unsigned third-party' FPR population is 561 ml_fusion rows; product groups are 291, not the '294-product list' in V31_STATUS.",
+    "[docs_audit, \u00a73 CV row, minor] 'Grouped 10\u00d75 CV' is mislabeled: train_v31.py step 4 is repeated row-level stratified 5-fold CV (protocol string '10x stratified 5-fold, threshold on train folds') refitting only the logistic fusion + threshold over fixed member scores on the same 349/4,497 rows as v3; only the f-member OOF scores (step 1) are family-grouped. It cannot measure any benefit of the 250 added samples. FPR-EXE is 1.13 % (0.011350; train_v32.log prints 1.135 %), not 1.14 %.",
+    "[docs_audit, \u00a73 robustness row, minor] The row has 8 numbers (clean + 7 attacks) under a '7 attacks' label; '1\u20132 pts under v3.1 on 4 of 7' is actually under on 3 of 7 attacks (4 of 8 rows counting clean) by 0.3\u20131.7 pts (clean \u22120.86, overlay_1m \u22120.86, strings_10k \u22120.29, cert_blob \u22121.72).",
+    "[docs_audit, \u00a71/\u00a75, minor] collect_recent_v32.log shows tag:loader and tag:dropper were skipped after 4\u00d7 HTTP 502 and tag:Nim/nim/NET returned no new rows; the haul is stealer + Rust/golang/Go + the EXE feed. Neither \u00a71 nor \u00a75 says so and the \u00a75 collect command would not reproduce the haul. 'MalwareBazaar caps tag and feed queries at ~100\u2013200 rows' is loose: --limit defaults to 1000 ('API max 1000'), tag:stealer returned 266, golang 198.",
+    "[docs_audit \u00a75; container Dockerfile finding] \u00a75 omits the unit-test command and the container-gate command; the gate script that produced container_gate_v32_quiet.log is not in the repository (the quiet log records '(1 CPU)' only, not the 1 GiB / read-only flags); the host defender_product/Dockerfile (sha 473164d4\u2026) is the older rf_adv/defender.server one, not the zip's Dockerfile (sha 70f39a1c\u2026) the image was built from. Container rows are therefore not reproducible from \u00a75.",
+    "[container zip claim, minor] mlsec-defender-submission-v32.zip (45,029,858 B, sha256 94f80bf5e53b3c505b8d1ef8f25f048d5acea3223cb3061ad7df8cfd531b2776) contains one entry beyond the stated list: .dockerignore (118 B allow-list). Harmless, but 'nothing else' is literally false. Everything else checks: 11 defender/*.py byte-identical to defender_product/defender/ and to the running image's /app, 4 model artefacts, fusion_v32.json sha 901b1330\u2026 identical in repo/zip/container, no __pycache__/keys/samples, non-root uid 10001.",
+    "[trust_and_tell caveats on claims 2 and 5, minor] rsa_signed_by raises (no try/except; _cert_parts throws) instead of returning False for ~16 byte-flip / 143 bit-flip positions that corrupt a DER length byte; is_trusted_microsoft catches it so the security property holds, but the stated 'makes it False' contract is imprecise. The hidden-PowerShell tell is a pure string match: 3 of 5 constructed benign help-text strings fire it and 7 of 7 structural obfuscations evade it (consistent with cmdline.py's docstring; 0 hits on 2,118 goodware2 files and 7 course samples; max scan 0.079 s).",
+    "[integrity claim 2, info] Two training rows carry nfs_err 'PE parser rejected input' (row 1113 BlackCat; row 1456, one of the new mb_ rows) with only 498 nonzero features (training min 310, median 704) and are retained.",
+    "[holdout_stats claim 5] v32_course_once.json (tp 50, fp 0, threshold 3.9455621776096166, lowest 4.4322 '4ea01cf424fc', 4.5642 'f36e5b52f5ff') was accepted as written and cross-checked against v32_review.json and the container gate but not re-scored in-process, to respect the scored-once protocol; no script in dataset/tools or defender_product references 'course_once'/'lowest', so the writer of that file is uncommitted. Both lowest-scoring course malware are family 'unlabeled' with margins +0.49 / +0.62.",
+    "[docs_audit, info/minor] Smaller inconsistencies: v32_review.json tell_precision says 8/1686 (v32_malware_holdout.jsonl gives 8/1705 = 0.47 %); the '0 / 13,503 goodware' tell figure (V31 \u00a71, repeated in v32_review.json) has no log artifact; candidate A has no course-once artifact (its \u22120.84 is inferred from A's fusion equalling v3's; a docker image candA exists); the header's 'release/sure-shot-v3.1 (this tree)' is not literally true (checkout HEAD is an unborn 'main' with dataset/ and defender_product/ untracked; branch tip 29783bf does hold byte-identical docs); shipped docstrings still say 'v3 detector' (ensemble.py:2) and 'v3.1' (cmdline.py:1, trust.py:24-47); train_v31.py's docstring says the grading set is never loaded but it loads X_grading.npy for the feature-identical check; the efr threshold can be matched to train_v32.log only at 4 decimals (fine)."
+   ],
+   "doc_corrections": [
+    "\u00a72: replace 'The course set was read three times today (A, B, C)' with the true count \u2014 in-process scorings on 2026-10-20 of v4, v4.1, A, B and C (five), plus container passes of C (arm64 quiet gate 20:52, amd64 gate, independent review gate); keep the statement that none chose a threshold, hyper-parameter or sample. Mark candidate A's '\u22120.84' as inferred (no course-once artifact).",
+    "\u00a71 Source: 'by tag (stealer 187, Rust 8, golang 5, Go 1) and the recent-EXE feed (49) = 250'; add 'tag:loader and tag:dropper were skipped after repeated HTTP 502; tag:Nim/nim/NET returned no new rows'. \u00a74: replace 'MalwareBazaar caps tag and feed queries at ~100\u2013200 rows' with the actual returns (stealer 266, golang 198; --limit default 1000).",
+    "\u00a71 Families: 'Vidar 77, WARDENStealer 57, untagged 43, SalatStealer 28, RemusStealer 11, RustyStealer 4, VShell 3, njrat 3, AokigaharaStealer 3, BridgeAgent 2, ValleyRAT 1, GCleaner 1, plus 17 singleton families (list them) = 250'. This also removes the 10-vs-11 RemusStealer inconsistency with the overlap row.",
+    "\u00a71 Hygiene: after '0 training rows feature-identical (np.isclose atol 1e-6)', add: '23 NanoCore training rows inherited from v3 (source=None, 207,872 B, imphash f34d5f2d\u2026) are near-identical builds of 2 course NanoCore samples (nearest L2 2.45 and 5.92 vs a median nearest-training distance of 2.4e5), so 2 of the 50 course malware are effectively in training; the atol / L2<1.0 check cannot detect this'. Echo this next to the 50/50 headline. Add: '2 of the 250 new samples (Vidar, ~9 MB; index rows 1665/1666) are hashes removed from the original course release (manifest.lineage.removed_sha256); not in the corrected 100; the collection ban list did not include lineage.removed_sha256 \u2014 fixed in the \u00a75 command'.",
+    "\u00a73 CV row: rename to '10\u00d7 stratified 5-fold CV of fusion + threshold over fixed member scores (row-level; only f-member OOF scores are family-grouped)'; 'FPR-EXE 1.09 \u2192 1.13 %'; add 'cannot measure the effect of the 250 new samples'.",
+    "\u00a73 holdout row: add 'of which 30 trusted-Microsoft (cleared by signature), 561 ML-scored'; add 'two discordant files within 0.01 of the threshold'; V31_STATUS '294-product list' \u2192 291.",
+    "\u00a73 robustness row: label 'clean + 7 attacks (8 numbers)'; change '1\u20132 pts under v3.1 on 4 of 7' to 'under v3.1 on 3 of 7 attacks (4 of 8 incl. clean) by 0.3\u20131.7 pts (cert_blob \u22121.7), ties 3, ahead on overlay_4m (+0.6)'.",
+    "\u00a73 container arm64 row: v3 cell \u2192 '48/50; 60 MB files 2.6\u20135.6 s with overrun (result=1) on 2\u20133 of 6 (v4_review.json, arm64)'; v3.1 cell \u2192 revert to V31_STATUS ('49/50; p95 341 ms; peak 357 MiB; 12\u201316 s on 60\u201367 MB files under load; not re-measured on a quiet host') or attach the missing log; v3.2 cell \u2192 'peak 896 MiB (128 MiB headroom)' and 'small/low-entropy malformed \u2192 1; high-entropy non-PE >= ~512 KB is ML-scored and answers 0' in place of 'malformed \u2192 1'. State the full docker flags (--network none -m 1g --cpus 1 --read-only) in the row or the log.",
+    "\u00a73 amd64 row: attach dataset/work/exp/container_gate_v32_amd64.log (docker flags, course-set TP/FP, p95, course-set peak and large-file peak separately); until then mark the cell 'claimed in v32_review.json; no log'.",
+    "\u00a73 zip row: 'Dockerfile, .dockerignore, requirements.ensemble.txt, LICENSE.upstream, defender/ (11 modules), models/ (4 artefacts)'; note that the shipped Dockerfile is the one in submission_v32/the zip, not defender_product/Dockerfile.",
+    "\u00a74 Honest limits: add (a) non-PE / high-entropy input is scored benign by the EMBER-only 'ef' fallback, contradicting the fail-toward-detection statements in server.py/ensemble.py; (b) memory headroom after 60+ MB files is ~128 MiB on arm64 (~48 MiB on amd64 if the claimed 976 MiB is the large-file peak) and the slowest such file uses 70 % of the 4 s request budget \u2014 safe for the course set (every file < 5 MB) but not for arbitrary large goodware; (c) v3.2 trades 1\u20136 hits/349 of robustness vs v3.1 and +4 holdout FPs for +1 course TP / +0.83 logit margin on one sample; (d) 2 of 50 course malware have near-duplicate training builds inherited from v3.",
+    "\u00a75 Reproduce: add 'defender_product/.venv/bin/python -I -m unittest discover -s tests -t .' (74 tests) and the container-gate invocation; commit the gate script (container_gate.sh) to the repository; add '--exclude-manifest' coverage of lineage.removed_sha256; fix the collect tag list to what succeeded or annotate loader/dropper/Nim/NET as failed/empty; state which Dockerfile the shipped image was built from.",
+    "Header: make 'release/sure-shot-v3.1 (this tree)' true (check the branch out) or say the working tree is untracked and the branch tip 29783bf holds identical files.",
+    "Cosmetic/consistency: v32_review.json tell_precision 8/1686 \u2192 8/1705; remove or source the '0 / 13,503 goodware' figure; update shipped docstrings (ensemble.py:2 'v3 detector', cmdline.py:1 and trust.py:24-47 'v3.1'); fix train_v31.py docstring ('grading set is never loaded'); optionally make rsa_signed_by return False on DER parse errors so its documented contract is exact."
+   ],
+   "summary": "SHIP, conditional on evidence/document fixes only \u2014 no retrain and no new image. The detector's substantive claims survived all five refutation attempts: the course set re-run independently in the container gives TP=50 FN=0 FP=0 TN=50, p95 38 ms, max 55 ms, errors 0, course-set peak 215 MiB, oom_kill 0, non-root uid 10001 (container); no course hash is in training, 0 feature-identical rows, fusion/threshold/zip/image artefacts byte-consistent with the repo (integrity, container); every holdout, robustness, CV and recent_test number reproduces exactly (holdout_stats, docs_audit); the PCA pins and the hidden-PowerShell tell behave as specified and 74/74 tests pass (trust_and_tell, docs_audit). Against the pass bar (TPR > 95 %, FPR < 1 %, 1 GiB, 5 s) the margin is wide: lowest malware +0.49 logits, all 50 goodware cleared deterministically by Authenticode trust, and every course file is < 5 MB so the large-file memory/timing findings cannot touch the grade. v3.1 (49/50) and even v3 (48/50 = 96 %) would also clear the bar; v3.2 is the right submission because it adds cushion on the one hard sample at costs (holdout +4 FP, p = 0.34; 1\u20136 fewer robustness hits than v3.1) that are not graded. What does not pass is the status document \u2014 docs_audit's FAIL is deserved. Five items block submitting the write-up as written: (1) the amd64 grading-arch gate has no artifact; (2) 'read three times today' understates reads of the course set (v4, v4.1 and container passes the same day); (3) the v3/v3.1 container baseline cells are unsupported or contradict V31/V4_STATUS; (4) \u00a71 provenance counts (stealer 170, Vidar 61, RemusStealer 10, 216/250 families) are wrong against the author's own logs; (5) the '0 feature-identical' hygiene claim omits that 2 of 50 course NanoCore samples have 23 near-identical training builds inherited from v3. Produce the amd64 log, apply the listed corrections, then submit mlsec-defender-submission-v32.zip (sha256 94f80bf5e53b3c505b8d1ef8f25f048d5acea3223cb3061ad7df8cfd531b2776) unchanged."
+  }
+ ]
+}

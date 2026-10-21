@@ -1,0 +1,10 @@
+feature-identical to a grading malware sample: 0 training rows dropped
+near-duplicate (L2 < 10000) of a grading malware sample: 38 rows dropped {'NanoCore': 38}
+hashes from the ORIGINAL course release (manifest.lineage.removed_sha256): 2 rows dropped
+malware rows: 1705 -> 1665 after hygiene; untagged groups: 30
+[efr] coef=[0.2019, 0.4056, 1.2397] b=2.3513 t=4.0819 | fit TPR 0.848 FPR all 0.089% EXE 0.926%
+[ef] coef=[0.3494, 0.4184] b=3.6373 t=3.7100 | fit TPR 0.822 FPR all 0.111% EXE 0.926%
+[r] coef=[2.5824] b=-0.2523 t=8.9464 | fit TPR 0.175 FPR all 0.067% EXE 0.694%
+CV (10x5, dedup'd): TPR 0.865±0.043 (EXE malware 0.886) | FPR all 0.116% EXE 1.203%±1.618%
+course f (fold-avg): [0.021, 0.125, 0.681, 0.266, 0.077, 0.279, 0.904]
+wrote /Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/models/ember_ft_v33/ember_ft.txt (3.0 MB) and /Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/models/fusion_v33.json
