@@ -17,3 +17,8 @@
 !models/ember_ft_v31/
 !models/ember_ft_v31/**
 !models/fusion_v31.json
+
+# Other candidates' serving code (v5 experiment) is not part of this image
+defender/v5_server.py
+defender/ember2024.py
+defender/vendor_ember2024/

@@ -10,31 +10,39 @@ releases, locally installed software, the course samples): 0 hits. Training malw
 narrow, and trivially evaded by obfuscating the string, so it only ever ADDS detections
 on top of the ML fusion and never clears a file.
 
-The scan is linear and cheap: a case-insensitive literal search for "powershell" (ASCII
+The scan is linear and cheap: a lowercase copy and bytes.find for "powershell" (ASCII
 and UTF-16LE), then the two option checks inside a +/-512-byte window around each hit.
 Nothing is decoded, parsed or executed.
 """
 from __future__ import annotations
 import re
 
-_PWSH_ASCII = re.compile(rb"powershell", re.IGNORECASE)
-_PWSH_U16 = re.compile("powershell".encode("utf-16le").replace(b"p", b"[pP]", 1), re.IGNORECASE)
 _SEP = r"[\"',\s]{1,6}"
 _BYPASS = re.compile(r"-e(?:xecutionpolicy|xec|p|x)?" + _SEP + r"bypass", re.IGNORECASE)
 _HIDDEN = re.compile(r"-w(?:indowstyle)?" + _SEP + r"(?:hidden|1\b)", re.IGNORECASE)
+_NEEDLES = ((b"powershell", "latin-1"), ("powershell".encode("utf-16le"), "utf-16le"))
 _WINDOW = 512
 _MAX_HITS = 200
 
 
 def _windows(bytez: bytes):
+    """Yield the decoded +/-512-byte window around every 'powershell' occurrence.
+
+    bytes.lower() + bytes.find are memchr-speed (a 65 MB file costs ~60 ms); a
+    case-insensitive regex over the whole buffer cost 2.5 s, which is a real share of
+    the 4 s request budget on the largest benign installers.
+    """
+    low = bytez.lower()  # only ASCII letters change, so the UTF-16LE needle still matches
     n = 0
-    for pat, enc in ((_PWSH_ASCII, "latin-1"), (_PWSH_U16, "utf-16le")):
-        for m in pat.finditer(bytez):
-            lo, hi = max(0, m.start() - _WINDOW), min(len(bytez), m.end() + _WINDOW)
+    for needle, enc in _NEEDLES:
+        pos = low.find(needle)
+        while pos != -1:
+            lo, hi = max(0, pos - _WINDOW), min(len(bytez), pos + len(needle) + _WINDOW)
             yield bytez[lo:hi].decode(enc, "ignore")
             n += 1
             if n >= _MAX_HITS:
                 return
+            pos = low.find(needle, pos + len(needle))
 
 
 def embedded_powershell_bypass(bytez: bytes) -> str | None:
