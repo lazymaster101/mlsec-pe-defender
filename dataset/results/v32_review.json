@@ -1,0 +1,277 @@
+{
+ "version": "v32",
+ "date": "2026-10-20",
+ "course_set_scored_once": {
+  "in_process": {
+   "tp": 50,
+   "fn": 0,
+   "fp": 0,
+   "tn": 50,
+   "threshold": 3.9455621776096166,
+   "wrong": [],
+   "lowest": [
+    [
+     4.4322,
+     "4ea01cf424fc",
+     "unlabeled",
+     "ml_fusion",
+     0.110508,
+     0.998327,
+     0.510333
+    ],
+    [
+     4.5642,
+     "f36e5b52f5ff",
+     "unlabeled",
+     "ml_fusion",
+     0.219941,
+     0.979694,
+     0.68257
+    ],
+    [
+     5.2932,
+     "63d31f6d448d",
+     "Phorpiex",
+     "ml_fusion",
+     0.817835,
+     0.994451,
+     0.614333
+    ],
+    [
+     5.3315,
+     "ecdc7cb90d66",
+     "Phorpiex",
+     "ml_fusion",
+     0.824826,
+     0.994849,
+     0.614333
+    ],
+    [
+     5.337,
+     "17843590f5ff",
+     "Phorpiex",
+     "ml_fusion",
+     0.824877,
+     0.994923,
+     0.614333
+    ],
+    [
+     5.3381,
+     "d90d1bd6eb37",
+     "Phorpiex",
+     "ml_fusion",
+     0.827574,
+     0.994883,
+     0.614333
+    ],
+    [
+     5.344,
+     "bddbed57dd41",
+     "Phorpiex",
+     "ml_fusion",
+     0.826589,
+     0.994983,
+     0.614333
+    ],
+    [
+     5.353,
+     "58107ef05903",
+     "Phorpiex",
+     "ml_fusion",
+     0.829625,
+     0.995041,
+     0.614333
+    ]
+   ]
+  },
+  "container_arm64_quiet": {
+   "tp": 50,
+   "fp": 0,
+   "p95_ms": 40,
+   "max_ms": 59,
+   "peak_mib_course": 215,
+   "largest_files_s": [
+    2.87,
+    2.09,
+    2.44,
+    2.05,
+    1.98,
+    1.99
+   ],
+   "peak_mib_large": 896,
+   "oom_kill": 0
+  },
+  "container_amd64_emulated": {
+   "tp": 50,
+   "fp": 0,
+   "p95_ms": 120,
+   "peak_mib_large": 976,
+   "oom_kill": 0,
+   "note": "timing under emulation + contention; decisions identical"
+  }
+ },
+ "reads_of_course_set_today": [
+  "A (v3 + pins + tell)",
+  "B (v3.1)",
+  "C (v3.2)"
+ ],
+ "fusion": {
+  "ft_rounds": 800,
+  "malware_rows": 1705,
+  "fit_set": {
+   "malware": 349,
+   "goodware": 4497,
+   "goodware_exe": 432
+  },
+  "cv_estimate": {
+   "tpr": 0.8533623188405797,
+   "tpr_exe": 0.8730913490623112,
+   "fpr_all": 0.0010896798912371772,
+   "fpr_exe": 0.01134990644212777,
+   "tpr_sd": 0.04220594897985685,
+   "fpr_exe_sd": 0.016136248461842594,
+   "protocol": "10x stratified 5-fold, threshold on train folds"
+  }
+ },
+ "efr": {
+  "order": [
+   "e",
+   "f",
+   "r"
+  ],
+  "coef": [
+   0.2198665627733459,
+   0.37155471532492673,
+   1.2235682497679945
+  ],
+  "intercept": 2.465494441478293,
+  "threshold": 3.9455621776096166,
+  "fit_tpr": 0.8452722063037249,
+  "fit_fpr_all": 0.00088948187680676,
+  "fit_fpr_exe": 0.009259259259259259
+ },
+ "new_samples": {
+  "n": 250,
+  "by_query": {
+   "mb_type:exe": 49,
+   "mb_tag:Rust": 8,
+   "mb_tag:golang": 5,
+   "mb_tag:Go": 1,
+   "mb_tag:stealer": 187
+  },
+  "by_family": {
+   "Vidar": 77,
+   "WARDENStealer": 57,
+   "untagged": 43,
+   "SalatStealer": 28,
+   "RemusStealer": 11,
+   "RustyStealer": 4,
+   "VShell": 3,
+   "njrat": 3,
+   "AokigaharaStealer": 3,
+   "BridgeAgent": 2,
+   "ValleyRAT": 1,
+   "GCleaner": 1
+  },
+  "course_hashes_refused": 0,
+  "feature_identical_to_course_dropped": 0,
+  "untagged_groups_by_imphash": 30
+ },
+ "family_overlap_train_vs_course": {
+  "NanoCore": [
+   40,
+   2
+  ],
+  "RemusStealer": [
+   11,
+   1
+  ]
+ },
+ "sealed_holdout": {
+  "v3": {
+   "all": [
+    45,
+    591
+   ],
+   "exe": [
+    43,
+    465
+   ]
+  },
+  "v31": {
+   "all": [
+    45,
+    591
+   ],
+   "exe": [
+    43,
+    465
+   ]
+  },
+  "v32": {
+   "all": [
+    49,
+    591
+   ],
+   "exe": [
+    47,
+    465
+   ]
+  }
+ },
+ "robustness": {
+  "clean": {
+   "v3": 0.8767908309455588,
+   "v31": 0.9426934097421203,
+   "v32": 0.9340974212034384
+  },
+  "overlay_64k": {
+   "v3": 0.9025787965616046,
+   "v31": 0.9283667621776505,
+   "v32": 0.9283667621776505
+  },
+  "overlay_1m": {
+   "v3": 0.8538681948424068,
+   "v31": 0.8853868194842407,
+   "v32": 0.8767908309455588
+  },
+  "overlay_4m": {
+   "v3": 0.8022922636103151,
+   "v31": 0.8080229226361032,
+   "v32": 0.8137535816618912
+  },
+  "strings_10k": {
+   "v3": 0.8108882521489972,
+   "v31": 0.8510028653295129,
+   "v32": 0.8481375358166189
+  },
+  "section_inject": {
+   "v3": 0.8624641833810889,
+   "v31": 0.9054441260744985,
+   "v32": 0.9054441260744985
+  },
+  "header_copy": {
+   "v3": 0.9197707736389685,
+   "v31": 0.9398280802292264,
+   "v32": 0.9398280802292264
+  },
+  "cert_blob": {
+   "v3": 0.8911174785100286,
+   "v31": 0.9340974212034384,
+   "v32": 0.9169054441260746
+  }
+ },
+ "recent_test_tpr": {
+  "v3": 0.896,
+  "v31": 0.954,
+  "v32": 0.945
+ },
+ "tests": "74/74",
+ "tell_precision": {
+  "goodware_files": 13503,
+  "goodware_hits": 0,
+  "course_hits": 1,
+  "malware_hits": "8/1686",
+  "max_latency_ms_67MB": 185
+ }
+}

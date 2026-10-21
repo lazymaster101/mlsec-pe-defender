@@ -1,0 +1,9 @@
+{
+  "calibrated_on": "work/ember_official/test.jsonl",
+  "threshold": 0.8209317347072365,
+  "fpr": 0.01,
+  "tpr": 0.7674666666666666,
+  "target_fpr": 0.01,
+  "n_benign": 30000,
+  "n_malicious": 30000
+}

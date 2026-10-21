@@ -1,0 +1,9 @@
+*
+!Dockerfile
+!requirements.ensemble.txt
+!defender/
+!defender/**
+!models/
+!models/**
+!LICENSE.upstream
+**/__pycache__

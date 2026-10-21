@@ -22,3 +22,6 @@
 defender/v5_server.py
 defender/ember2024.py
 defender/vendor_ember2024/
+!models/ember_ft_v32/
+!models/ember_ft_v32/**
+!models/fusion_v32.json
