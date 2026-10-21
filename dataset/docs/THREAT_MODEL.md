@@ -85,10 +85,11 @@ Derived directly from §2–§5, each with the failure it prevents:
    one-step evasion in reverse.
 6. **Label provenance.** Labels derived from AV consensus with an explicit rule and
    an explicit discarded middle band, not a single vendor's verdict.
-7. **Adversarial variants held out.** Functionality-preserving transforms from §3
-   applied to test malware, scored separately. Clean-set TPR alone does not
-   describe §2–§3. **Delivered** as an in-memory feature-space probe (append benign
-   dead imports; rewrite mutable header metadata) — see
+7. **Adversarial variants held out.** Synthetic feature-space perturbations modelled
+   on the §3 transforms, applied to test rows and scored separately. Clean-set TPR
+   alone does not describe §2–§3. **Delivered** as an in-memory feature-space probe
+   (append benign dead imports; rewrite mutable header metadata; no PE produced or
+   executed) — see
    [PITFALL_AUDIT.md](PITFALL_AUDIT.md) Part 2 and
    `dataset/results/adversarial_featurespace.json`.
 
@@ -120,13 +121,15 @@ describes the specific transforms tested and nothing beyond them.
 
 This is now quantified rather than asserted: the measured collapse on the clean model
 is 75 % → 9 % under a combined append-imports + header-rewrite transform, and to 0.9 %
-under full feature-space mimicry (an upper bound). The paper-supported remedy —
-adversarial training on these transforms (Lucas, USENIX'23), which plain augmentation
-does not substitute for — is now **implemented and deployed** as `rf_adv`. On held-out
-malware it holds the trained combined attack at 55 % (from 7 %) and packing at 76 %
-(from 21 %), for a 2.8-point clean-TPR cost. It does **not** claim robustness beyond the
-trained attacks: an untrained mechanism (section-injection, F) shows no gain, and the
-full-mimicry upper bound (D) still evades ~99 %. This raises attacker cost on the cheap
-realizable evasions; it is not general robustness. See
+under full feature-space mimicry (an upper bound). The remedy implemented is random
+augmentation with these same perturbations (`rf_adv`). That is the unguided augmentation
+which Lucas et al. (USENIX'23) show to be weaker than attack-based training on real
+binaries; it is not that method, and an earlier version of this paragraph said otherwise.
+On held-out rows it holds the trained combined perturbation at 55 % (from 7 %) and packing
+at 76 % (from 21 %), for a 2.8-point clean-TPR cost. It does **not** claim robustness
+beyond the trained perturbations: an untrained mechanism (section-injection, F) shows no
+gain, and the full-mimicry upper bound (D) still evades ~99 %. All of this is feature
+space: no adversarial binary was produced, validated or executed. It raises the cost of
+the cheap perturbations; it is not general robustness. See
 [COMPARISON_REPORT.md](COMPARISON_REPORT.md) §10 and
 [PITFALL_AUDIT.md](PITFALL_AUDIT.md) Parts 2 and 7.

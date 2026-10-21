@@ -7,8 +7,10 @@ actually visited rather than to the 380 MB on disk.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import math
+import os
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +39,16 @@ class Model:
             raise ValueError("DF_FEATURE_MODE must be 'training' or 'legacy'")
         self.feature_mode = feature_mode
         self.name = self.schema["model_name"]
+
+        # Integrity: the manifest's SHA-256 digests are verified at load time (review
+        # 2026-09-21, finding 9: the digests used to be documentation only). Hashing the
+        # ~60 MB of arrays costs ~0.1 s once at startup. DF_SKIP_MANIFEST_VERIFY=1 disables
+        # it for experiments on hand-edited arrays and is logged in info().
+        self.manifest_verified = False
+        manifest_path = directory / "manifest.json"
+        if manifest_path.is_file() and os.environ.get("DF_SKIP_MANIFEST_VERIFY") != "1":
+            self._verify_manifest(directory, json.loads(manifest_path.read_text()))
+            self.manifest_verified = True
 
         arrays = {name: np.load(directory / f"{name}.npy", mmap_mode="r", allow_pickle=False)
                   for name in ARRAY_NAMES}
@@ -77,6 +89,26 @@ class Model:
                 raise ValueError("Unexpected forest array shape")
         if self._inverse_scale.shape != (self.n_features,):
             raise ValueError("Unexpected scaling vector shape")
+
+    @staticmethod
+    def _verify_manifest(directory: Path, manifest: dict[str, Any]) -> None:
+        files = manifest.get("files") or {}
+        expected = {f"{name}.npy" for name in ARRAY_NAMES} | {"schema.json"}
+        missing = expected - set(files)
+        if missing:
+            raise ValueError(f"manifest.json does not cover {sorted(missing)}")
+        for name, entry in files.items():
+            path = directory / name
+            if not path.is_file():
+                raise ValueError(f"manifest lists {name} but it is missing")
+            digest = hashlib.sha256()
+            with path.open("rb") as fh:
+                for chunk in iter(lambda: fh.read(1 << 20), b""):
+                    digest.update(chunk)
+            if digest.hexdigest() != entry.get("sha256"):
+                raise ValueError(f"{name}: SHA-256 does not match manifest.json")
+            if "bytes" in entry and path.stat().st_size != int(entry["bytes"]):
+                raise ValueError(f"{name}: size {path.stat().st_size} != manifest {entry['bytes']}")
 
     def vectorize(self, attributes: dict[str, Any]) -> np.ndarray:
         """Build the scaled float32 row the forest was trained to consume."""
@@ -128,4 +160,5 @@ class Model:
             "ensemble": self.ensemble,
             "feature_mode": self.feature_mode,
             "source_sha256": self.schema.get("source_sha256"),
+            "manifest_verified": self.manifest_verified,
         }

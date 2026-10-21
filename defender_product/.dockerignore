@@ -28,3 +28,6 @@ defender/vendor_ember2024/
 !models/ember_ft_v33/
 !models/ember_ft_v33/**
 !models/fusion_v33.json
+
+# editor/review backups
+defender/*.pre-review

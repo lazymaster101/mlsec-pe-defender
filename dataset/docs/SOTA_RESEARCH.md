@@ -118,7 +118,12 @@ attacker-*addable* content: padding, new sections, slack, DOS header.
   2508.10038): a linear post-processing layer enforcing **monotonicity on
   attacker-additive EMBER features** → **93 % AUC / 96 % robust** vs an 8-attack suite.
   Because attackers can usually only *add* features, a monotone/non-negative model is
-  robust-by-construction to feature-addition.
+  robust-by-construction to feature-addition. Two qualifiers (review 2026-09-21): the
+  93/96 figures are the paper's *empirical* ERDALT method; its *certified* construction
+  is a separate result (§4 of the paper). And the NFS space is not coordinatewise
+  monotone under token addition — signed hashing plus L2 normalisation can move any
+  coordinate either way — so a monotone constraint on this pipeline would not be a
+  certificate.
 - **EXE-scanner** (arXiv 2405.02646): a decoupled reject-option / adversarial-example
   detector *layered on top* achieves ~0 clean flips at 1 % FPR, and — critically —
   **naive adversarial training "induces regression + drift damage."** This independently
@@ -142,7 +147,9 @@ recall at fixed low FPR as the headline metric.
 - **Label-efficient AL+SSL** (arXiv 2603.28396) — validated on *our exact stack*
   (RandomForest + EMBER Windows PE, monthly batches): recovers most of the full-relabel
   F1 gap at a **2 % monthly labeling budget** (no-retrain F1 66 → full-relabel 91 →
-  BADGE-AL@2 % ≈ 82) (✅ verified).
+  BADGE-AL@2 % ≈ 82) (✅ verified). These are F1 numbers from that paper's RF + EMBER
+  setup, not TPR/FPR on this product; "our exact stack" means the same model family and
+  feature set, not this detector.
 - **SEED** (semi-supervised continual, ACM TOPS 2026): **+32 % unseen-task AUT on BODMAS
   Windows PE** at 100 labels/month (✅ verified).
 - **TRANSCENDENT** conformal rejection (USENIX'22): per-class p-values quarantine
@@ -198,9 +205,9 @@ Ranked by impact-per-effort, all within the 1 GB / 5 s static budget:
    Runtime already supports `gbdt_logistic`. *High impact, medium effort.*
 2. **Upgrade the data — EMBER2024 temporal split** (+ BODMAS for drift, MOTIF for label
    audit, RawMal-TF for adversarial eval). *High impact, medium effort.*
-3. **Robustness by design — monotone constraints (ERDALT pattern) + a reject-option
-   stage**, replacing reliance on clean-cost-heavy adversarial training. *High impact,
-   medium effort.*
+3. **Robustness by design — monotone constraints (ERDALT's empirical pattern; not a
+   certificate in this feature space, see above) + a reject-option stage**, replacing
+   reliance on clean-cost-heavy augmentation. *High impact, medium effort.*
 4. **Drift pipeline — AUT@fixed-FPR metric + conformal rejection + AL/SSL monthly
    retraining** at a 2 % labeling budget. *High impact on lifespan, medium effort.*
 5. **Report at FPR 1 %/0.1 %/0.01 % + precision at base rate**, stratified by packer tag.

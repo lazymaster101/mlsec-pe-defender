@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Functionality-preserving adversarial transforms on NFS attribute dicts.
+"""Synthetic FEATURE-SPACE perturbations of NFS attribute dicts (not PE rewrites).
 
 Single source of truth shared by adversarial *training* (train_nfs_adversarial.py)
 and adversarial *evaluation* (evaluate_adversarial.py), so the model is never
-trained and tested on subtly different attacks.
+trained and tested on subtly different perturbations.
 
 Everything here edits an already-extracted attribute dict the way a
-functionality-preserving PE rewrite would edit the corresponding fields. No PE bytes
-are produced, decrypted, or executed.
+functionality-preserving PE rewrite is INTENDED to edit the corresponding fields. No PE
+bytes are produced, decrypted, validated or executed, so nothing here establishes that a
+working binary with these features exists: the "REALIZABLE" tags below mean "intended
+to correspond to a realizable edit", unverified (review 2026-09-21, finding 3). Results
+computed with these transforms are feature-space results and must be labelled as such.
 
 Attacks and how they are used:
   A additive-imports  — append a benign file's imports (unused/dead). REALIZABLE. In training.

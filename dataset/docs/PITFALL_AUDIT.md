@@ -8,7 +8,8 @@ every "partial"/"gap" verdict says what is missing and whether this audit fixed 
 New measurements produced *by* this audit (so the gaps are numbers, not adjectives):
 
 * `dataset/results/adversarial_featurespace.json` — feature-space evasion under
-  functionality-preserving transforms.
+  synthetic attribute-dict perturbations intended to mirror functionality-preserving
+  rewrites (no PE produced or executed).
 * `dataset/results/pitfall_checks.json` — precision at realistic base rates,
   near-duplicate structure, and train/test feature-level leakage.
 
@@ -38,12 +39,12 @@ New measurements produced *by* this audit (so the gaps are numbers, not adjectiv
 | P2 | Label inaccuracy | **Partial** | Labels are source-derived: MalwareBazaar = malicious by curation, EMBER/Chocolatey benign = provenance. No independent multi-scanner (VT/AVClass) cross-check was run; `vt_enrich.py` exists but is unused. Threat: a mislabeled feed sample. Called out as an open gap below. |
 | P3 | Data snooping | **Partial → improved** | Temporal split is genuinely enforced: EMBER train months < 2018-11, test 2018-11/12 (COMPARISON §3); HashingVectorizer has a *fixed* hash (no vocabulary fit on test → no vocabulary snooping). **But** this audit found **18–19 % of recent-test malware is feature-identical to a training row** (`pitfall_checks.json`): the split isolates SHA-256, not features. Corrected numbers below. |
 | P4 | Spurious correlations | **Partial** | Feature space is header/import metadata only — it never sees raw bytes/entropy, so it cannot learn the classic "packed ⇒ malicious" pixel/entropy shortcut. But this audit shows it leans heavily on *import lists and header metadata*, which are trivially forgeable (Part 2). No per-feature attribution (SHAP) was run to rule out other shortcuts. |
-| P5 | Biased parameter selection | **Accounted** | The one decisive hyperparameter (`max_features=0.05`) was justified mechanically and its threshold is calibrated on a held-out benign split, not the test set (COMPARISON §4; `package_model.choose_threshold`). No test-set tuning. |
+| P5 | Biased parameter selection | **Partial — corrected 2026-10-21** | The one decisive hyperparameter (`max_features=0.05`) was justified mechanically (COMPARISON §4). **The threshold claim here was wrong:** `rf_adv`'s 0.8209 was calibrated on a 30k/30k subsample of the EMBER temporal *test* file (`models/rf_adv/operating_point.json`: `calibrated_on: work/ember_official/test.jsonl`, via `package_model.py --calibrate`), i.e. on the evaluation set. The 1.0 % reported at that threshold is a calibration fit; at the fixed threshold the full 100k test benign give 1.051 % (Wilson 95 % 0.99–1.12 %) and the 70k outside the subsample 1.073 % (review 2026-09-21, finding 1). `package_model.py` now refuses test-named calibration files. The v3.3 ensemble that is actually submitted sets its thresholds on fit folds and reports grouped CV and a sealed holdout instead. |
 | P6 | Inappropriate baseline | **Accounted** | Compared against the supplied model, a naive-default retrain, a tuned retrain, and the published EMBER GBDT as an industry reference (COMPARISON §2, §6). The naive baseline is kept precisely to show the trap. |
 | P7 | Inappropriate measures | **Accounted** | Headline is TPR at the FPR=1 % operating point with Wilson 95 % CIs, plus per-family and per-year slices; accuracy/F1 deliberately omitted (COMPARISON §1). This audit adds precision at realistic base rates (P8). |
 | P8 | Base-rate fallacy | **Gap → fixed here** | The report quoted TPR/FPR only. This audit computes PPV across base rates (`pitfall_checks.json`): at a 1 % malware base rate, alerts are **majority false** (PPV 45 % EMBER-derived, 28 % recent-derived); at 0.1 %, mostly noise. So 1 % FPR is *still too high* for a low-base-rate stream. Now stated. |
 | P9 | Lab-only evaluation | **Accounted** | Evaluated end-to-end through the real HTTP container under the 1 GB / 5 s budget, fail-toward-detection, live latency percentiles (COMPARISON §8; README). Not just offline scores. |
-| P10 | Inappropriate threat model | **Gap → measured, then fixed** | This was the biggest hole: clean-sample metrics with **no** adversarial component, against a model whose exact ancestor was publicly evaded (Part 2). This audit measured functionality-preserving evasion (75 %→9 % on the clean model) **and then hardened the deployed model with adversarial training** (combined attack 7 %→55 % on held-out `recent_test`; COMPARISON §10), while stating the fix's limits (no transfer to untrained mechanism F; ~99 % evaded under full-mimicry D). |
+| P10 | Inappropriate threat model | **Gap → measured, then fixed** | This was the biggest hole: clean-sample metrics with **no** adversarial component, against a model whose exact ancestor was publicly evaded (Part 2). This audit measured evasion under synthetic feature-space perturbations (75 %→9 % on the clean model) **and then trained the deployed model with random augmentation on the same perturbations — feature-space only; no executable adversarial binary was produced or tested** (combined attack 7 %→55 % on held-out `recent_test`; COMPARISON §10), while stating the fix's limits (no transfer to untrained mechanism F; ~99 % evaded under full-mimicry D). |
 
 ---
 
@@ -60,14 +61,15 @@ Arp P10 makes an adversarial component mandatory, not optional.
 Because the NFS feature space reads only lief-parsed header/import fields, this audit
 attacks those fields directly, in memory, on already-extracted attribute dicts — no
 malware is decrypted, written, or executed. Each transform edits the attribute dict
-the way a functionality-preserving PE rewrite would, then re-scores at the deployed
-threshold. (One honest corollary: pure overlay/packer *append* changes **no** NFS
+the way a functionality-preserving PE rewrite is *intended* to (no PE is produced,
+validated or executed, so realizability is assumed, not shown), then re-scores at the
+deployed threshold. (One honest corollary: pure overlay/packer *append* changes **no** NFS
 field, so this model is immune to that specific attack — but only because it is blind
 to file content; the fields it does read are the forgeable ones.)
 
 Recent malware (2020–2026, full set n≈1454), detection at the deployed threshold:
 
-| Transform (all functionality-preserving) | Detect before | Detect after | Evasion of caught |
+| Transform (synthetic, feature-space; intended to mirror functionality-preserving edits) | Detect before | Detect after | Evasion of caught |
 |---|---|---|---|
 | A — add benign "dead" imports (keep real ones) | 75.2 % | **26.3 %** | 65 % |
 | B — rewrite freely-mutable header metadata to a benign file's | 75.2 % | **28.4 %** | 62 % |
@@ -79,12 +81,13 @@ cheap manipulation — pad the import table with benign API names and copy a ben
 file's timestamp/linker/version fields — drops recent-malware detection from 75 % to
 **9 %**, i.e. back to the blind level of the un-retrained supplied model. Attack D is
 a Pierazzi-style feature-space *upper bound* (may not be fully realizable in problem
-space); A/B/C are realizable problem-space edits and are the ones that matter.
+space); A/B/C are intended to correspond to realizable problem-space edits — a
+correspondence that has not been verified by producing and running binaries.
 
 **Verdict for P10: measured, then fixed — with the fix's own limits measured too.**
-The clean model was *not* adversarially robust. The Lucas remedy (train on the attack)
-is **implemented and deployed** as `rf_adv` (realizable attacks A/B/C/E mixed into
-training). Evaluated honestly — on the **held-out `recent_test` split** (0 SHA overlap),
+The clean model was *not* robust to these perturbations. The remedy implemented is
+**random augmentation with perturbations A/B/C/E** (`rf_adv`) — the unguided augmentation
+that Lucas et al. contrast with attack-based training on real binaries, not that method. Evaluated honestly — on the **held-out `recent_test` split** (0 SHA overlap),
 with **held-out donors**, at the **deployed threshold**, with Wilson CIs — the trained
 attacks are far harder: combined attack C **7 % → 55 %** (CIs [5-10] vs [51-60],
 non-overlapping) and packing E **21 % → 76 %**. Two honest limits, from the same table:
@@ -92,7 +95,8 @@ non-overlapping) and packing E **21 % → 76 %**. Two honest limits, from the sa
 (59 % → 58 %) — no transfer to unseen mechanisms; (2) the full feature-mimicry upper
 bound (D) leaves both models ~99 % evaded. Clean cost: 2.8 pt EMBER TPR, ~7.6 pt
 held-out recent. So this is in-distribution robustness to the trained attack families
-on held-out samples — real and worth deploying, not a claim of general robustness. Full
+on held-out rows, in feature space — not a claim of general or executable-level
+robustness. Full
 method and CIs in COMPARISON_REPORT §10; `dataset/results/adversarial_training.json`.
 
 *(Self-correction, this audit's own dogfood: the first adversarial eval attacked the
@@ -151,14 +155,18 @@ The recent-test headline (98.8 % TPR @ 0.25) is **saturated and misleading**: at
 the benign FPR on that set is 48 %, so 0.25 is not an operating point. At the deployed
 threshold, separating leaked from novel test rows (`pitfall_checks.json`):
 
-| Recent-test malware | n | TPR @ deployed 0.756 |
-|---|---|---|
-| all | 433 | 66.3 % |
-| feature-identical to a train row (leaked) | 84 | 90.5 % |
-| **novel features (honest generalization)** | 349 | **60.5 %** |
+| Recent-test malware | n | `rf_augmented` @ 0.7565 | `rf_adv` (deployed single-model) @ 0.8209 |
+|---|---|---|---|
+| all | 433 | 66.3 % | 58.7 % (254) |
+| feature-identical to a train row (leaked) | 84 | 90.5 % | 81.0 % (68) |
+| **novel features (honest generalization)** | 349 | **60.5 %** | **53.3 % (186)** |
 
-So the true "new instance of a known family" detection at the deployed threshold is
-~**60 %**, not 66–99 %. The augmentation result (drift §7) still stands — the full-set
+Held-out recent **goodware** for the same models: 6 of the 60 held-out benign rows are
+feature-identical to a trained benign row; `rf_adv` flags 1/60 (1/54 novel). The 140
+recent benign rows used in training must not be pooled into any FPR figure.
+
+So the true "new instance of a known family" detection is ~**60 %** for `rf_augmented`
+and **53 %** for the deployed `rf_adv`, not 66–99 %. The augmentation result (drift §7) still stands — the full-set
 9 %→75 % gain is measured over the whole recent set and the clean EMBER-temporal gain
 is leakage-free — but the held-out figure was inflated and is now corrected.
 
@@ -168,8 +176,8 @@ is leakage-free — but the held-out figure was inflated and is now corrected.
 
 | Gap | Pitfall | Status |
 |---|---|---|
-| No adversarial robustness | P10; Shallow/XOR/GAMMA/Lucas | **Measured, then FIXED (held-out).** Deployed `rf_adv` (COMPARISON §10): combined attack 7 %→55 %, packing 21 %→76 % on held-out `recent_test`. Limits stated: no transfer to untrained mechanism F, ~99 % evaded under full-mimicry D. |
-| Train/test feature-level leakage (~18 %) | P3 | **Measured & corrected** (Part 6). Fix = dedup by feature-fingerprint before splitting. |
+| No adversarial robustness | P10; Shallow/XOR/GAMMA/Lucas | **Measured in feature space, then mitigated in feature space (held-out rows).** `rf_adv` (COMPARISON §10): combined perturbation 7 %→55 %, packing 21 %→76 % on held-out `recent_test`. Limits: no transfer to untrained mechanism F, ~99 % evaded under full-mimicry D, and **no executable adversarial binary was produced or tested** — robustness to real functionality-preserving attacks remains open. |
+| Train/test feature-level leakage (~18 %) | P3 | **Measured; reported on the novel-feature subset** (Part 6). The structural fix — dedup by feature fingerprint before splitting (`split_recent.py --group-duplicates`, added 2026-10-21) — has **not** been applied to the split `rf_adv` was trained on; the v3+ fusion fit excludes the 84 duplicates (`train_v3.py`). |
 | Base-rate precision not reported | P8 | **Fixed** (Part 2/`pitfall_checks.json`). |
 | No independent label cross-check | P2 | **Open.** Run `vt_enrich.py` / AVClass on the feed. |
 | Feed-poisoning defense | D'Onghia/TrojanPuzzle | **Open.** Canary + unlearning path. |

@@ -30,40 +30,43 @@ from defender import features as feature_extraction   # noqa: E402
 from defender.model import Model                      # noqa: E402
 
 
+def threshold_for_fpr(benign: np.ndarray, target: float) -> float:
+    """Lowest cut such that FPR = mean(benign > cut) <= target, under the server's STRICT
+    ``score > threshold`` rule (review 2026-09-21, finding 5).
+
+    With n benign scores, at most floor(target * n) may exceed the cut, so the cut is the
+    (allowed + 1)-th largest benign score; ties at the cut are not exceedances. If every
+    benign score may exceed the cut, any cut below the minimum works and the lowest
+    informative choice is just below it."""
+    ordered = np.sort(np.asarray(benign, dtype=np.float64))
+    n = ordered.size
+    allowed = int(np.floor(target * n + 1e-12))
+    if allowed >= n:
+        return float(np.nextafter(ordered[0], -np.inf))
+    return float(ordered[n - 1 - allowed])
+
+
 def metrics(scores: np.ndarray, labels: np.ndarray) -> dict:
-    """ROC/PR summaries plus the operating points the challenge is graded on."""
+    """ROC/PR summaries plus the operating points the challenge is graded on.
+
+    ROC-AUC and PR-AUC are tie-aware (scikit-learn): a 100-tree forest emits scores on a
+    0.01 grid, so ties across classes are the norm, and a per-row ROC path mis-scores
+    them (review 2026-09-21, finding 5). Operating points use ``threshold_for_fpr``."""
+    from sklearn.metrics import average_precision_score, roc_auc_score
+    scores = np.asarray(scores, dtype=np.float64)
+    labels = np.asarray(labels)
     benign = scores[labels == 0]
     malicious = scores[labels == 1]
     out: dict = {"n_benign": int(benign.size), "n_malicious": int(malicious.size)}
     if benign.size == 0 or malicious.size == 0:
         return out
-    order = np.argsort(-scores, kind="mergesort")
-    ranked = labels[order]
-    tp = np.cumsum(ranked == 1)
-    fp = np.cumsum(ranked == 0)
-    tpr = tp / malicious.size
-    fpr = fp / benign.size
-    out["roc_auc"] = float(np.trapezoid(tpr, fpr)) if fpr[-1] > 0 else float("nan")
-    precision = tp / np.maximum(tp + fp, 1)
-    out["pr_auc"] = float(np.trapezoid(precision, tpr))
-
+    out["roc_auc"] = float(roc_auc_score(labels, scores))
+    out["pr_auc"] = float(average_precision_score(labels, scores))
     for target in (0.001, 0.01, 0.05):
-        # Threshold must be strictly greater-than, matching the server's rule.
-        allowed = np.flatnonzero(fpr <= target)
-        if allowed.size:
-            index = allowed[-1]
-            cut = float(scores[order][index])
-            achieved_fpr = float((benign > cut).mean())
-            if achieved_fpr > target:              # ties pushed us over; step up
-                candidates = np.unique(benign)
-                higher = candidates[candidates >= cut]
-                cut = float(higher[0]) if higher.size else cut
-                achieved_fpr = float((benign > cut).mean())
-            out[f"tpr_at_fpr_{target}"] = float((malicious > cut).mean())
-            out[f"threshold_at_fpr_{target}"] = cut
-            out[f"actual_fpr_{target}"] = achieved_fpr
-        else:
-            out[f"tpr_at_fpr_{target}"] = 0.0
+        cut = threshold_for_fpr(benign, target)
+        out[f"tpr_at_fpr_{target}"] = float((malicious > cut).mean())
+        out[f"threshold_at_fpr_{target}"] = cut
+        out[f"actual_fpr_{target}"] = float((benign > cut).mean())
     for threshold in (0.25, 0.5):
         out[f"fpr_at_{threshold}"] = float((benign > threshold).mean())
         out[f"tpr_at_{threshold}"] = float((malicious > threshold).mean())
@@ -165,6 +168,8 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=20260919)
     parser.add_argument("--out", type=pathlib.Path)
     parser.add_argument("--label", default="eval")
+    parser.add_argument("--dump-scores", type=pathlib.Path,
+                        help="write per-model scores, labels and sha256s to this .npz")
     args = parser.parse_args()
 
     rows: list[dict] = []
@@ -184,6 +189,7 @@ def main() -> None:
     report: dict = {"label": args.label, "n": len(rows),
                     "n_benign": int((labels == 0).sum()),
                     "n_malicious": int((labels == 1).sum()), "models": {}}
+    dump: dict = {"labels": labels, "sha256": np.array([r.get("sha256", "") for r in rows])}
     for spec in args.model:
         name, _, directory = spec.partition("=")
         model = Model(directory, "training")
@@ -214,12 +220,16 @@ def main() -> None:
             summary["slices"] = {k: {**v, "tpr": round(v["detected"] / v["n"], 4)}
                                  for k, v in sorted(slices.items())}
         report["models"][name] = summary
+        dump[f"scores_{name}"] = scores
         print(f"  {name:12s} scored in {seconds:6.1f}s "
               f"({summary['ms_per_sample']:.2f} ms/sample)", file=sys.stderr)
 
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(report, indent=2) + "\n")
+    if args.dump_scores:
+        args.dump_scores.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(args.dump_scores, **dump)
     print(json.dumps({n: {k: v for k, v in s.items() if k != "slices"}
                       for n, s in report["models"].items()}, indent=2))
 

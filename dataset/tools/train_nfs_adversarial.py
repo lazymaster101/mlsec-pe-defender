@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Adversarially-trained NFS RandomForest.
+"""NFS RandomForest trained with synthetic feature-space perturbations ("rf_adv").
 
 Same feature space, same forest hyperparameters, same export format as
 ``train_nfs.py`` — the only change is that a fraction of the malicious class is
-augmented with functionality-preserving adversarial variants (adv_transforms.py):
-malware whose forgeable import/header fields have been made to look benign, still
-labelled malicious. This is the Lucas (USENIX'23) recipe — train on the attack — as
-opposed to plain data augmentation, which the paper shows does not confer robustness.
+augmented with randomly generated attribute-dict perturbations (adv_transforms.py):
+malware rows whose forgeable import/header fields are rewritten toward a random benign
+donor, still labelled malicious. This is UNGUIDED augmentation: donors, rows and
+transforms are drawn at random, with no model query, loss or gradient. Lucas et al.
+(USENIX'23) distinguish exactly this kind of augmentation from attack-based training on
+real binaries and show the former is weaker; the earlier wording here ("the Lucas
+recipe, train on the attack") overstated it (review 2026-09-21, finding 3). No PE is
+produced or executed; robustness measured with these transforms is feature-space only.
 
 Donors for the training-time attack are the benign *training* rows. Evaluation uses
 held-out donors (evaluate_adversarial.py), so a robustness gain reflects learning,

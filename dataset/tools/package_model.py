@@ -2,9 +2,14 @@
 """Install a trained model into the defender_product image and pick its threshold.
 
 Copies the exported arrays into ``defender_product/models/<name>`` and computes the
-operating threshold that meets a target FPR on a held-out set, so the deployed
+operating threshold that meets a target FPR on a CALIBRATION set, so the deployed
 DF_MALWARE_THRESHOLD is measured rather than guessed. It does not overwrite the
 supplied model unless asked; the runtime selects a model by DF_MODEL_DIR.
+
+Use a calibration file that is disjoint from training AND from the final evaluation
+set; the tool refuses (unless --allow-test-calibration) a file whose name contains
+"test", because calibrating on the evaluation set turns the reported FPR into a fit,
+not a measurement (review 2026-09-21, finding 1).
 
     python package_model.py --model dataset/models/gbdt --name gbdt \
         --calibrate dataset/work/ember_official/test.jsonl --target-fpr 0.01
@@ -29,18 +34,16 @@ def choose_threshold(model: Model, rows: list[dict], target_fpr: float) -> dict:
     scores, _, _ = E.score_rows(model, rows)
     labels = np.array([r["label"] for r in rows], dtype=np.int8)
     benign, malicious = scores[labels == 0], scores[labels == 1]
-    # Lowest threshold whose benign exceedance is still within budget: that
-    # maximises TPR while holding FPR <= target. Candidates are the distinct
-    # benign scores (the only points where FPR changes), scanned ascending.
-    best = {"threshold": 1.0, "fpr": 0.0, "tpr": 0.0, "target_fpr": target_fpr,
-            "n_benign": int(benign.size), "n_malicious": int(malicious.size)}
-    for cut in np.unique(benign):
-        fpr = float((benign > cut).mean())
-        if fpr <= target_fpr:
-            best.update(threshold=float(cut), fpr=fpr,
-                        tpr=float((malicious > cut).mean()))
-            break
-    return best
+    # Lowest threshold whose benign exceedance is still within budget (strict > rule):
+    # that maximises TPR while holding FPR <= target on THIS calibration set. It is an
+    # empirical calibration, not a bound on unseen data (review 2026-09-21, finding 1):
+    # the threshold is set to land exactly on the target, so it has no margin, and the
+    # calibration file must not also be the file the model is finally evaluated on.
+    cut = E.threshold_for_fpr(benign, target_fpr)
+    return {"threshold": float(cut), "fpr": float((benign > cut).mean()),
+            "tpr": float((malicious > cut).mean()), "target_fpr": target_fpr,
+            "n_benign": int(benign.size), "n_malicious": int(malicious.size),
+            "note": "empirical calibration on the named file at the target FPR; not a population guarantee"}
 
 
 def main() -> None:
@@ -55,7 +58,12 @@ def main() -> None:
                         default=pathlib.Path(__file__).resolve().parents[2]
                         / "defender_product" / "models")
     parser.add_argument("--seed", type=int, default=20260919)
+    parser.add_argument("--allow-test-calibration", action="store_true",
+                        help="calibrate on a file named like a test set anyway (not recommended)")
     args = parser.parse_args()
+    if args.calibrate and "test" in args.calibrate.name.lower() and not args.allow_test_calibration:
+        raise SystemExit(f"refusing to calibrate on {args.calibrate}: it looks like an evaluation set "
+                         "(pass --allow-test-calibration to override, and say so in the report)")
 
     destination = args.dest / args.name
     destination.mkdir(parents=True, exist_ok=True)

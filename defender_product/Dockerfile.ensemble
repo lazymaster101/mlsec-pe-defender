@@ -16,6 +16,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DF_RF_DIR=/app/models/rf_adv \
     DF_EMBER_FT=/app/models/ember_ft_v33/ember_ft.txt \
     DF_FUSION=/app/models/fusion_v33.json \
+    DF_REQUEST_BUDGET_SECONDS=4.5 \
+    DF_WORKER_MODE=process \
+    DF_WORKERS=1 \
     DF_HOST=0.0.0.0 \
     DF_PORT=8080
 

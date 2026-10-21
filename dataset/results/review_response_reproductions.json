@@ -1,0 +1,867 @@
+{
+ "workflow": "reproduce-codex-findings",
+ "run": "wf_e9bfc2be-555",
+ "date": "2026-10-21",
+ "note": "each finding of reports/verification-2026-09-21/REPORT.md reproduced against the tree of 2026-10-21 before fixing",
+ "findings": [
+  {
+   "finding": "FINDING 6 reproduces exactly on the current tree. dataset/tools/split_recent.py (sha256 e6bc380c... identical to reviewed-state-hashes.json) drops the one attributes=None row (line 19), shuffles each family group with random.Random(20260919) (line 30) and holds out int(0.3*n) per group; re-running it today into scratch reproduces dataset/work/recent_train.jsonl and recent_test.jsonl byte-for-byte (cmp identical). Counts: recent.jsonl 1655 rows (1455 mal / 200 ben, 1 unparseable: sha 3d457b11..., BlackCat, label 1, appeared 2022-10); recent_train 1161 (1021 mal / 140 ben); recent_test 493 (433 mal / 60 ben); SHA overlap 0. 84/433 test-malware rows have attributes identical (json.dumps sort_keys=True) to a train row, leaving 349; dataset/work/exp/recent_test_nfs_dups.json is a list of exactly those 84 SHAs (set-equal). Additionally 6/60 test benign rows are feature-identical to train benign (held-out novel benign n=54, as the review's npz shows). Not temporal: all benign rows have appeared \"\" in both files; malware train spans 2020-09..2026-09 and test 2020-12..2026-09, 52 of 53 distinct test months also occur in train, 493/493 test rows have appeared <= train max, 38 families in both and 0 test families unseen in train. Scoring the CURRENT defender_product/models/rf_adv (threshold 0.820932) on current code: held-out benign FP 1/60 = 1.667%; the 140 TRAINED benign give 0/140; combined 1/200 = 0.5% \u2014 i.e. the documented 0.5% mixes trained and held-out goodware. Malware: 254/433 = 58.66% overall, 186/349 = 53.30% after excluding the 84 duplicates, 68/84 = 80.95% on the duplicates. The review's rf_adv-recent-scores.npz (n=493) matches these current scores with max |diff| = 0.0. Documents on the current tree still carry the mixed figure: COMPARISON_REPORT.md:155 \"| goodware FPR (EMBER 30k / recent 200) | 1.0 % / 0.5 % |\" (in the rf_adv \u00a78 table prefaced at :146 by \"All numbers here share the \u00a710 evaluation basis (held-out `recent_test`...)\") and COMPARISON_REPORT.md:127 \"| supplied | **9.2 %** | 0.5 % |\" over \"the full recent set (1,455 malware 2020\u20132026 / 200 goodware)\"; defender_product/README.md:109-110 (file modified 2026-10-20, after the review) \"**FPR calibrated to 1 %** on 30 000 held-out EMBER benign; 0.5 % on the 200-PE recent goodware set\"; DATASHEET.md:77-79 \"Unlabelled and unparseable records dropped from training; unparseable *test* samples are kept and scored 1, matching the server's fail-toward-detection rule, so the metric is not flattered by silently discarding hard inputs\" (contradicted by split_recent.py:19, which removes the record before any test set exists; recent_test has 0 attributes-None rows). DATASHEET.md:80 \"**Temporal split on first-seen date**, never random\" describes only EMBER; COMPARISON_REPORT.md:115 acknowledges the recent split is \"family-stratified\". PITFALL_AUDIT.md:157-158 \"| feature-identical to a train row (leaked) | 84 | 90.5 % |\" / \"| **novel features (honest generalization)** | 349 | **60.5 %** |\" at \"TPR @ deployed 0.756\" are rf_augmented@0.756536 numbers (reproduced 76/84 and 211/349), not the deployed rf_adv's (68/84, 186/349). PITFALL_AUDIT.md:172 says \"Fix = dedup by feature-fingerprint before splitting\" but the split script and files are unchanged. No document states 1/60; V32_STATUS.md \u00a76 errata (2026-10-20) do not address this finding. train_v3.py (lines 74-79) handles the 84 duplicates only at the fusion-fit stage: it loads recent_test_nfs_dups.json and excludes those SHAs from the fusion-fit malware (\"drop recent_test rows whose NFS features are identical to an rf_adv training row (84/433): rf_adv is effectively in-sample on them, which would inflate its weight\"), so the fusion is fit on 349 malware; it also removes rf_adv's 140 training goodware from the fit goodware (docstring lines 13-16). It does not re-split or retrain rf_adv.",
+   "reproduces": "YES",
+   "evidence": "All reproduced on CURRENT code and data (nothing relied on old evidence alone; the review's npz was only cross-checked and matched to 0.0). Scripts and outputs in /private/tmp/claude-501/-Users-seshadithyasaravanan-Desktop-CSCE-704-Model/162af773-f9f6-4002-89df-456c9332050c/scratchpad/repro/finding6/ (analyze_split.py + analyze_split.out, score_rf_adv.py + score_rf_adv.out, dup_test_mal_shas.json, split_out/). Commands (PY=\"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/.venv/bin/python\", ROOT=\"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model\", SCR=<scratch above>): (1) \"$PY\" -I \"$SCR/analyze_split.py\" \"$ROOT\" \"$SCR\" -> recent_total 1655, recent_attr_none 1, train 1161 {1:1021,0:140}, test 493 {1:433,0:60}, sha_overlap 0, test_mal_attr_dup_of_train 84, test_ben_attr_dup_of_train 6, dups_json_count 84, dups_json_eq_our_set true, appeared_values_in_both 52, test_rows_appeared_le_train_max 493, label0 appeared ranges [\"\",\"\"], test_families_not_in_train []. (2) mkdir -p \"$SCR/split_out/ember_official\" && : > \"$SCR/split_out/ember_official/train.jsonl\" && \"$PY\" -I \"$ROOT/dataset/tools/split_recent.py\" --recent \"$ROOT/dataset/work/recent.jsonl\" --out-dir \"$SCR/split_out\"; cmp with repo files -> \"recent_train.jsonl IDENTICAL\", \"recent_test.jsonl IDENTICAL\". (3) \"$PY\" -I \"$SCR/score_rf_adv.py\" \"$ROOT\" \"$SCR\" (uses defender.model.Model + dataset/tools/fast_score.score_rows, same path as the review's verify_results.py) -> rf_adv@0.820932: test_benign_fp 1/60, train_benign_fp 0/140, all200 1/200=0.005, test_mal 254/433=0.5866, novel 186/349=0.5330, leaked 68/84=0.8095, review_npz_max_abs_diff_vs_current 0.0; rf_augmented@0.756536: 287/433, 76/84, 211/349, FP 2/60 + 2/140. (4) shasum -a 256 dataset/tools/split_recent.py -> e6bc380c55a0bed706e10b6e785eebdbdb3eb9acb0b3ae95532ea6b579e7e8fd == reviewed-state-hashes.json:39. (5) grep -n of the four documents for the quoted lines (COMPARISON_REPORT.md:122-127,146,155,233-236; DATASHEET.md:71-82; PITFALL_AUDIT.md:150-158,172; defender_product/README.md:109-110; train_v3.py:13-16,74-79). Model files defender_product/models/rf_adv/*.npy are dated 2026-09-21 10:25 (pre-review) and operating_point.json threshold 0.8209317347072365; data files dated 2026-09-19; docs dated 2026-09-21 11:02-11:04 except README.md 2026-10-20 21:24.",
+   "numbers": {
+    "recent_jsonl_rows": 1655,
+    "recent_jsonl_malware": 1455,
+    "recent_jsonl_benign": 200,
+    "recent_jsonl_attributes_none": 1,
+    "unparseable_row": {
+     "sha256": "3d457b11a195ea28d5ce30afa350c5e718302a310da4eb0746406dba270f55b3",
+     "label": 1,
+     "family": "BlackCat",
+     "appeared": "2022-10"
+    },
+    "recent_train_rows": 1161,
+    "recent_train_malware": 1021,
+    "recent_train_benign": 140,
+    "recent_test_rows": 493,
+    "recent_test_malware": 433,
+    "recent_test_benign": 60,
+    "train_plus_test": 1654,
+    "sha_overlap_train_test": 0,
+    "test_malware_attr_identical_to_train": 84,
+    "test_malware_attr_identical_pct": 19.4,
+    "test_malware_novel": 349,
+    "test_benign_attr_identical_to_train": 6,
+    "test_benign_novel": 54,
+    "recent_test_nfs_dups_json_count": 84,
+    "dups_json_set_equals_recomputed": true,
+    "split_seed": 20260919,
+    "split_test_frac": 0.3,
+    "split_rerun_byte_identical": true,
+    "split_recent_sha256_matches_reviewed_state": true,
+    "benign_appeared_values": "all empty string in train and test",
+    "malware_train_appeared_range": [
+     "2020-09",
+     "2026-09"
+    ],
+    "malware_test_appeared_range": [
+     "2020-12",
+     "2026-09"
+    ],
+    "test_distinct_months": 53,
+    "test_months_also_in_train": 52,
+    "test_rows_appeared_le_train_max": 493,
+    "families_train": 38,
+    "families_test": 38,
+    "test_families_unseen_in_train": 0,
+    "rf_adv_threshold": 0.820932,
+    "rf_adv_heldout_benign_fp": "1/60 = 1.6667% (Wilson 95% 0.295-8.855%)",
+    "rf_adv_trained_benign_fp": "0/140",
+    "rf_adv_all200_benign_fp": "1/200 = 0.5%",
+    "rf_adv_test_malware_detected": "254/433 = 58.6605%",
+    "rf_adv_novel_malware_detected": "186/349 = 53.2951%",
+    "rf_adv_leaked_malware_detected": "68/84 = 80.95%",
+    "rf_adv_novel_benign_fp": "1/54 = 1.85%",
+    "review_npz_vs_current_scores_max_abs_diff": 0,
+    "rf_augmented_threshold": 0.756536,
+    "rf_augmented_test_malware_detected": "287/433 = 66.28%",
+    "rf_augmented_leaked_detected": "76/84 = 90.5%",
+    "rf_augmented_novel_detected": "211/349 = 60.5%",
+    "rf_augmented_benign_fp": "2/60 held-out, 2/140 trained, 4/200 = 2.0%",
+    "train_v3_fusion_fit_malware": 349,
+    "doc_lines": {
+     "COMPARISON_REPORT.md": [
+      122,
+      127,
+      146,
+      155,
+      115,
+      233
+     ],
+     "DATASHEET.md": [
+      77,
+      78,
+      79,
+      80
+     ],
+     "PITFALL_AUDIT.md": [
+      157,
+      158,
+      172
+     ],
+     "defender_product/README.md": [
+      109,
+      110
+     ],
+     "train_v3.py": [
+      13,
+      16,
+      74,
+      79
+     ]
+    }
+   },
+   "notes_for_fix": "1) Report held-out goodware separately everywhere the recent goodware FPR appears: COMPARISON_REPORT.md:155 and defender_product/README.md:109-110 should say rf_adv 1/60 held-out (1.67%, Wilson 95% 0.3-8.9%) and 0/140 trained, not \"0.5 % on the 200-PE recent goodware set\"; COMPARISON_REPORT.md:127's \"0.5 %\" for the supplied model over all 200 is legitimate for that model (never trained on them) but the table should say so; also 6/60 held-out benign are feature-identical to trained benign (novel benign n=54, 1/54). n=60 cannot certify a 1% population FPR. 2) split_recent.py: group rows by feature fingerprint (hashlib.sha256(json.dumps(attributes, sort_keys=True))) before the per-family holdout so identical-feature rows never straddle train/test (84 malware + 6 benign currently do); if a temporal split is wanted, note that only malware rows carry 'appeared' (year-month) and all 200 goodware rows have appeared \"\", so a chronological benign split is impossible from this field. Any re-split changes recent_train, so rf_adv (and anything calibrated on it) would need retraining; the cheaper documentation-only fix is to keep the split and make the novel-feature subset (349 malware / 54 benign) the primary reported figure, which train_v3.py already does for the fusion fit (lines 74-79) but not for rf_adv's own reported numbers. 3) DATASHEET.md:77-79: either narrow the \"unparseable test samples are kept and scored 1\" claim to the EMBER/HTTP evaluation or stop dropping at split_recent.py:19 and carry the one unparseable row (a BlackCat malware sample) into recent_test scored 1 (would make it 434 malware). DATASHEET.md:80's \"Temporal split ... never random\" should be scoped to EMBER; the recent split is random-within-family (COMPARISON \u00a77 caveat). 4) PITFALL_AUDIT.md Part 6 table (lines 152-158) labels 0.756 as the deployed threshold; those are rf_augmented@0.756536 figures (76/84 = 90.5%, 211/349 = 60.5%). Add the deployed rf_adv@0.820932 row: all 254/433 = 58.7%, leaked 68/84 = 81.0%, novel 186/349 = 53.3%; update PITFALL_AUDIT.md:172 \"Fix = dedup by feature-fingerprint before splitting\" to state it has not been applied. 5) V32_STATUS.md \u00a76 errata and V33_STATUS.md do not mention this finding; add it there if that is where review errata are tracked."
+  },
+  {
+   "finding": "FINDING 1 (P1): the deployed single-model rf_adv threshold 0.820932 was selected on a 30k/30k subsample of the EMBER temporal TEST file (work/ember_official/test.jsonl) via dataset/tools/package_model.py, while PITFALL_AUDIT.md row P5 says calibration used \"a held-out benign split, not the test set\" and COMPARISON_REPORT.md says the 1 % FPR bound is \"met by construction\". Re-scoring all 200,000 EMBER test rows on the CURRENT tree at strict score > 0.820932 gives FPR 1,051/100,000 = 1.051 % (Wilson 95 % 0.98965-1.11611 %) and TPR 76,728/100,000 = 76.728 %; on the 70,000 benign rows outside the reconstructed calibration subset, FPR 751/70,000 = 1.07286 %. The calibration subset itself gives exactly 300/30,000 = 1.000 %. The two document statements are present verbatim and unchanged (file hashes identical to the review's recorded state). The shipped v3.3 ensemble (Dockerfile.ensemble / submission_v33, fusion_v33.json) does NOT use 0.820932 anywhere: defender/ensemble.py thresholds only the fused log-odds (efr 4.0819; r-only fallback 8.9464, which implies rf_adv p > 0.9724). The 0.820932 threshold is live only in the single-model defender_product/Dockerfile (DF_MALWARE_THRESHOLD=0.820932 -> defender/server.py:179) and in the docs/README.",
+   "reproduces": "YES",
+   "evidence": "(a) Document statements, verbatim, current tree (sha256 identical to reports/verification-2026-09-21/reviewed-state-hashes.json: PITFALL_AUDIT.md 80e065c3..., COMPARISON_REPORT.md 5c98a67c...):\n- \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/dataset/docs/PITFALL_AUDIT.md\" line 41: \"| P5 | Biased parameter selection | **Accounted** | The one decisive hyperparameter (`max_features=0.05`) was justified mechanically and its threshold is calibrated on a held-out benign split, not the test set (COMPARISON \u00a74; `package_model.choose_threshold`). No test-set tuning. |\"\n- \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/dataset/docs/COMPARISON_REPORT.md\" lines 176-177 (phrase wraps across the two lines, which is why a one-line grep for \"by construction\" misses it): \"**Honest bottom line vs the challenge goals.** The 1 % FPR bound is met by\" / \"construction. The 95 % TPR bound is **not** reached in the NFS feature space (best\". Related: line 140 \"**threshold 0.8209** (exactly 1 % FPR on 30k EMBER benign)\"; line 155 \"goodware FPR (EMBER 30k / recent 200) | 1.0 % / 0.5 %\"; line 165 \"`DF_MALWARE_THRESHOLD=0.820932`\".\n- Additional instance not cited by the review: \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/README.md\" line 26: \"`rf_adv` fixes all three, measured on **held-out** malware: 1 % FPR by construction,\".\n- Calibration provenance: \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/models/rf_adv/operating_point.json\" = {\"calibrated_on\": \"work/ember_official/test.jsonl\", \"threshold\": 0.8209317347072365, \"fpr\": 0.01, \"tpr\": 0.7674666666666666, \"target_fpr\": 0.01, \"n_benign\": 30000, \"n_malicious\": 30000}. \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/dataset/tools/package_model.py\" lines 70-75: `if args.calibrate: model = Model(destination, \"training\"); rows = E.load_jsonl(args.calibrate, args.calibrate_limit, args.seed); result = choose_threshold(model, rows, args.target_fpr); (destination / \"operating_point.json\").write_text(json.dumps({\"calibrated_on\": str(args.calibrate), **result}...` ; choose_threshold (lines 28-43) picks the lowest distinct benign score whose strict-> exceedance is <= target FPR. The same test.jsonl is the file the project's EMBER TPR headline is reported on (manifest: test = 2018-11/12, 100k/100k).\n(b) Re-score on current code. The review's script writes its outputs into its own repo directory, so it was run as a verbatim copy with only two lines changed (ROOT -> project root, OUT -> scratch; diff shows only those two lines). Commands:\n  S=/private/tmp/claude-501/-Users-seshadithyasaravanan-Desktop-CSCE-704-Model/162af773-f9f6-4002-89df-456c9332050c/scratchpad/repro/finding1\n  cp \".../reports/verification-2026-09-21/verify_results.py\" \"$S/verify_results_scratch.py\"; sed -i '' \"s|^ROOT = pathlib.Path(__file__).resolve().parents\\[2\\]|ROOT = pathlib.Path('/Users/seshadithyasaravanan/Desktop/CSCE 704/Model')|\" ...; sed -i '' \"s|^OUT = pathlib.Path(__file__).resolve().parent|OUT = pathlib.Path('$S')|\" ...\n  cd \"$S\" && /usr/bin/time -l \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/.venv/bin/python\" -I \"$S/verify_results_scratch.py\" > \"$S/verify_results_scratch.log\" 2> \"$S/verify_results_scratch.err\"\n  Result (exit 0; 146.25 s wall, EMBER portion 138.6 s; max RSS 579,207,168 B): ember_full fpr k=1051 n=100000 rate 0.01051 ci95 [0.009896469, 0.011161138]; tpr k=76728 n=100000 rate 0.76728 ci95 [0.76465068, 0.76988879]; roc_auc_tie_corrected 0.9769570341; months {2018-11: 100000, 2018-12: 100000}; unique_hashes 200000. reconstructed_calibration_30k: fpr 300/30000 = 0.01, tpr 23024/30000 = 0.76746667, lowest_empirical_threshold 0.8209317347072362. outside_reconstructed_calibration: fpr 751/70000 = 0.01072857 ci95 [0.009991775, 0.011519068]; tpr 53704/70000 = 0.7672.\n  The fresh independent-results.json is IDENTICAL to the review's stored reports/verification-2026-09-21/independent-results.json apart from the 'seconds' field (diff after popping 'seconds' was empty). Recent-split numbers also reproduced exactly (rf_adv 1/60 FPR, 254/433 TPR; rf_augmented 2/60, 287/433; nfs 7/60, 266/433).\n  Independent cross-check ($S/crosscheck.py, output in $S/crosscheck.json): own Wilson implementation (z=1.959964) and scipy binomtest(...).proportion_ci(method='wilson') both give FPR 95 % CI [0.0098965, 0.0111611] for 1051/100000; counts are identical at the rounded Dockerfile threshold 0.820932 and at the exact stored 0.8209317347072365, and identical for > vs >= (0 benign scores tie the threshold; 0 benign scores lie in (0.820932, 0.8209317347072365]). Reconstructed choose_threshold on the reservoir-sampled 30k subset (seed 20260919, limit 30000, same algorithm as evaluate_models.load_jsonl lines 83-101) = 0.8209317347072362, |diff| vs stored = 2.2e-16. Versus the review's stored rf_adv-full-ember-scores.npz: same sha256 order, same labels, max |score diff| = 0.0, 0 decisions differ, calibration indices equal -> the current rf_adv artifacts (all 7 .npy + schema/manifest/operating_point sha256 match reviewed-state-hashes.json; model.py, fast_score.py, package_model.py also unchanged) produce bit-identical scores to the review's evidence.\n(c) Shipped v3.3 ensemble: \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/Dockerfile.ensemble\" sets DF_EMBER_MODEL, DF_RF_DIR=/app/models/rf_adv, DF_EMBER_FT, DF_FUSION=/app/models/fusion_v33.json; no DF_MALWARE_THRESHOLD; CMD python -m defender.ensemble_server. \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/defender/ensemble.py\" never reads operating_point.json or DF_MALWARE_THRESHOLD (grep: only lines 27-28 docstring, 67 `self._t = self._fusion[\"models\"][\"efr\"][\"threshold\"] + self._offset`, 141 `thr = fm[\"threshold\"] + self._offset`, 143 `verdict=int(score > thr)`); rf_adv enters only as member r via `self._rf.probability(...)` (line 82) -> logit -> fusion. Model.__init__ (defender/model.py) loads only the 7 .npy arrays + schema.json. fusion_v33.json thresholds (log-odds): efr 4.081908667053039, ef 3.709957082821113, r-only 8.946411418440464 with coef 2.58243 / intercept -0.25231, i.e. the rf_adv-only fallback fires at rf_adv probability > 0.9724025, not 0.820932. ensemble_server.py line 19 reports `self.threshold = ensemble._t` (4.0819). submission_v33/Dockerfile == Dockerfile.ensemble except the two trailing build/run comment lines; submission_v33/defender/ensemble.py and submission_v33/models/fusion_v33.json are byte-identical to defender_product's; the zip ships models/rf_adv/operating_point.json (unread at runtime). The 0.820932 threshold is used only by the single-model path: defender_product/Dockerfile line 13 `DF_MALWARE_THRESHOLD=0.820932` -> defender/server.py line 179 `threshold = float(os.environ.get(\"DF_MALWARE_THRESHOLD\", 0.25))`, line 51 `int(probability > self.threshold)`; plus docs (README.md 23, COMPARISON_REPORT.md 140/165) and dataset/tools/evaluate_adversarial.py line 18. No repository file was modified (git status: 0 tracked modifications; review-dir mtimes unchanged). Scratch outputs: $S/independent-results.json, $S/rf_adv-full-ember-scores.npz, $S/crosscheck.json, $S/verify_results_scratch.{log,err}.",
+   "numbers": {
+    "threshold_dockerfile": 0.820932,
+    "threshold_operating_point_exact": 0.8209317347072365,
+    "threshold_reconstructed": 0.8209317347072362,
+    "ember_test_rows": 200000,
+    "ember_test_benign": 100000,
+    "ember_test_malware": 100000,
+    "full_test_FP": 1051,
+    "full_test_FPR": 0.01051,
+    "full_test_FPR_wilson95_lo": 0.0098965,
+    "full_test_FPR_wilson95_hi": 0.0111611,
+    "full_test_TP": 76728,
+    "full_test_TPR": 0.76728,
+    "full_test_TPR_wilson95": [
+     0.7646507,
+     0.7698887
+    ],
+    "full_test_roc_auc": 0.9769570341,
+    "cal_subset_benign": 30000,
+    "cal_subset_FP": 300,
+    "cal_subset_FPR": 0.01,
+    "cal_subset_TP": 23024,
+    "cal_subset_TPR": 0.7674667,
+    "outside_cal_benign": 70000,
+    "outside_cal_FP": 751,
+    "outside_cal_FPR": 0.0107286,
+    "outside_cal_FPR_wilson95": [
+     0.0099918,
+     0.0115191
+    ],
+    "outside_cal_TP": 53704,
+    "outside_cal_TPR": 0.7672,
+    "benign_scores_tying_threshold": 0,
+    "max_abs_score_diff_vs_review_npz": 0,
+    "decisions_differ_vs_review_npz": 0,
+    "recent_rf_adv_FP": "1/60",
+    "recent_rf_adv_TP": "254/433",
+    "run_wall_seconds": 146.25,
+    "run_ember_seconds": 138.59,
+    "run_max_rss_bytes": 579207168,
+    "fusion_v33_efr_threshold_logodds": 4.081908667053039,
+    "fusion_v33_ef_threshold_logodds": 3.709957082821113,
+    "fusion_v33_r_only_threshold_logodds": 8.946411418440464,
+    "fusion_v33_r_only_implied_rf_adv_prob_threshold": 0.9724025,
+    "PITFALL_AUDIT_line": 41,
+    "COMPARISON_REPORT_lines": [
+     176,
+     177
+    ],
+    "README_extra_claim_line": 26,
+    "package_model_calibrate_lines": [
+     70,
+     75
+    ],
+    "server_threshold_line": 179,
+    "dockerfile_single_threshold_line": 13
+   },
+   "notes_for_fix": "1. Reproduced on CURRENT code, not just on old evidence: rf_adv artifacts, model.py, fast_score.py, package_model.py and both docs are hash-identical to the reviewed state, and the fresh re-score is bit-identical to the review's stored scores. 2. Scope caveat for the fix: the 0.820932 operating point is only the decision threshold of the single-model image (defender_product/Dockerfile -> defender.server); the shipped v3.3 ensemble (Dockerfile.ensemble, submission_v33) decides on fusion_v33.json log-odds thresholds fit on a different set (fit_set 349 malware / 4,497 goodware, cv 10x5-fold with threshold on train folds) and treats rf_adv only as a continuous member, so Finding 1's threshold-provenance defect does not transfer to the v3.3 decision threshold. However the single-model Dockerfile still defaults to rf_adv/0.820932 and remains in the tree. 3. Documentation corrections needed (text still present verbatim): PITFALL_AUDIT.md L41 (P5 \"calibrated on a held-out benign split, not the test set ... No test-set tuning\") is false for rf_adv: calibration source is work/ember_official/test.jsonl (operating_point.json 'calibrated_on'; package_model.py --calibrate). COMPARISON_REPORT.md L176-177 \"The 1 % FPR bound is met by construction\" and README.md L26 \"1 % FPR by construction\" describe the calibration-subset fit (300/30,000 exactly), not a bound; outside that subset the same model/threshold gives 1.073 % (751/70,000), and over the full test 1.051 % with a Wilson 95 % interval [0.990 %, 1.116 %] that straddles 1 %. COMPARISON_REPORT.md L140/L155 (\"exactly 1 % FPR on 30k EMBER benign\", \"EMBER 30k ... 1.0 %\") should be labelled as calibration-set figures. 4. Procedural fix (as the review says): split a calibration partition disjoint from the final EMBER test partition (or calibrate on EMBER train-tail / a validation month), freeze the threshold, then report the fixed-threshold FPR/TPR with counts and Wilson CIs on the untouched test partition; also report the full-test 76.7 % TPR rather than only the 30k-subset 76.75 %. 5. Tie/rounding is not a factor: zero benign scores tie or fall between the rounded (0.820932) and exact (0.8209317347072365) thresholds, so counts are identical for > vs >= and for either threshold value. 6. Re-run recipe: the review script must be copied out of the repo (it writes next to itself); only ROOT and OUT need redirecting; it runs in ~2.5 min / ~580 MB RSS on this host."
+  },
+  {
+   "finding": "FINDING 4 reproduces exactly on the current tree. \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/tools/evaluate.py\" is byte-identical to the reviewed file (sha256 8a10b336283335d92076535a0d176ace211d4929dbed5822be6fd8a4cf66a43e, matches reviewed-state-hashes.json; mtime Sep 19, before the review). score_over_http (lines 57-71) opens http.client.HTTPConnection(..., timeout=30), does json.loads(response.read()) and yields float(payload[\"result\"]), failed=False with no deadline check and no try/except. The review's mock-server script, re-run against current code on port 19401, again yields score 1.0, failed False after 5.208 s, and main() counts it as a true positive (TPR 100%, PASS) while only printing \"over budget: 1\" in the latency line. A dropped connection (http.client.RemoteDisconnected), a malformed JSON body (json.JSONDecodeError) and a JSON body without \"result\" (KeyError) each propagate out of the generator, kill the whole run with a traceback (exit 1), and no --json report is written, even for samples already scored (dropsecond: \"benign: scored 1 samples\" printed, then abort, nothing saved). An 11 s answer is also credited as a detection (effective deadline is 30 s, not 5 s).\n\n\"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/dataset/tools/grade_http.py\" (new since the review, mtime Oct 18, not in the review's hash list) shares only the late-answer half of the defect: it uses urllib.request.urlopen(req, timeout=10) (line 22), so a valid {\"result\":1} returned after 5.2 s is counted as a TP with errors=0 (latency printed as max=5219ms but never compared to 5 s); only answers later than ~10 s become errors. Unlike evaluate.py, it wraps each request in a bare except and treats any exception, non-JSON body, missing key or non-0/1 value as a non-answer counted against the defender (malware -> FN, goodware -> FP, errs += 1), and keeps going, so a dropped connection or malformed JSON does not abort the run and stays in the denominator. Neither tool implements the challenge's \"later than 5 s = evasion\" rule. A third, newer tool, dataset/tools/validate_frozen_candidate.py, does (timeout=5, seconds >= 5 -> result None, type-checked result, per-sample try/except) and is the correct template.",
+   "reproduces": "YES",
+   "evidence": "All scratch files are under /private/tmp/claude-501/-Users-seshadithyasaravanan-Desktop-CSCE-704-Model/162af773-f9f6-4002-89df-456c9332050c/scratchpad/repro/f4/ (call it $S). PY=\"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/.venv/bin/python\"; ROOT=\"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model\"; SAMPLE=\"$ROOT/ml-cybersecuritiy-course/datasets/samples/pe/7z.exe\" (the review's goodware sample; every mock server ignores the body, so it is only a payload). No repository file was modified; all ports used were 19401-19406 and all six mock servers were killed afterwards (lsof shows none listening).\n\n(1) Review script on current code. $S/verify_evaluator_timeout_adapted.py is the review's reports/verification-2026-09-21/verify_evaluator_timeout.py with two diffs only: root=pathlib.Path('<ROOT>') instead of parents[2], and HTTPServer(('127.0.0.1',19401),H) instead of port 0. Command: cd \"$S\" && \"$PY\" -I verify_evaluator_timeout_adapted.py -> {\"deliberate_response_delay\":5.2,\"returned_score\":1.0,\"failed\":false,\"elapsed\":5.20822295799735,\"counted_as_detected_by_existing_report\":true,\"correct_detected_under_5_second_rule\":false}, exit 0 (review's stored value was elapsed 5.206128833). Output written to $S/evaluator-timeout.json.\n\n(2) Mock server $S/mock_server.py <port> <mode> (modes: late=sleep 5.2 s then 200 {\"result\": 1}; drop=read body then close socket with no response; dropsecond=answer 1st request, drop the rest; badjson=200 with body '{\"result\": 1' (truncated); nokey=200 with '{\"malware_probability\": 0.9}'); $S/mock_server2.py adds verylate=sleep 11 s then {\"result\": 1}. Started as nohup \"$PY\" -I $S/mock_server.py 19401 late (19402 drop, 19403 badjson, 19404 dropsecond, 19405 nokey, 19406 verylate).\n\n(3) Function level, $S/probe_evaluate_fn.py (imports current evaluate.py via importlib, calls next(ev.score_over_http([SAMPLE], url))): late -> yielded score 1.0, failed False, elapsed 5.208; drop -> raised http.client.RemoteDisconnected \"Remote end closed connection without response\" after 0.001 s; badjson -> raised json.decoder.JSONDecodeError \"Expecting ',' delimiter: line 1 column 13 (char 12)\"; nokey -> raised builtins.KeyError 'result'. Output in $S/probe_fn.out.\n\n(4) evaluate.py CLI: \"$PY\" -I \"$ROOT/defender_product/tools/evaluate.py\" --malicious \"$SAMPLE\" --url http://127.0.0.1:<port> --json ev_<mode>.json (dropsecond run also passed --benign \"$SAMPLE\"). late: exit 0, wall 5.27 s, prints \"TPR 100.0000% (1/1) target >= 95.00% PASS\", \"latency s: mean 5.2070 p95 5.2070 max 5.2070 budget 5.0 over budget: 1\", JSON written with sample {\"score\":1.0,\"failed\":false,\"seconds\":5.207}, tpr 1.0. verylate (11 s): exit 0, wall 11.08 s, \"TPR 100.0000% (1/1) PASS\", \"max 11.0047 over budget: 1\", JSON written. drop: exit 1, wall 0.075 s, traceback ending http.client.RemoteDisconnected at evaluate.py line 66 (connection.getresponse()), no JSON. badjson: exit 1, traceback json.decoder.JSONDecodeError at line 67 (json.loads(response.read())), no JSON. nokey: exit 1, KeyError: 'result' at line 71, no JSON. dropsecond: stderr shows \"benign: scored 1 samples\" then the RemoteDisconnected traceback, exit 1, no JSON (already-scored sample lost). Outputs in $S/ev_<mode>.out, $S/ev_late.json, $S/ev_verylate.json.\n\n(5) grade_http.py with a 2-sample fake set $S/gs (manifest.json: one is_malware=true sha \"a\"*64 family mockfam, one goodware sha \"b\"*64 source_name mockgood; 1 KiB dummy .bin files). Command: \"$PY\" -I \"$ROOT/dataset/tools/grade_http.py\" \"$S/gs\" mock-<mode> http://127.0.0.1:<port>/ . late: wall 10.50 s, \"[mock-late] TP=1 FN=0 FP=1 TN=0 | TPR=100.0% FPR=100.0% | FAIL | errors=0 | latency p95=5219ms max=5219ms\", i.e. the 5.2 s malware answer is credited as TP with zero errors (the FAIL/FP=1 is only because the mock answers 1 for the goodware too). verylate (11 s): wall 20.10 s, \"TP=0 FN=1 FP=1 TN=0 | errors=2 | latency p95=10009ms max=10009ms\" -> timeouts fire at ~10 s, not 5 s. drop: wall 0.075 s, \"TP=0 FN=1 FP=1 TN=0 | TPR=0.0% FPR=100.0% | FAIL | errors=2 | misses: ['mockfam']\", run completes. badjson: identical to drop (errors=2, malware counted FN, goodware counted FP). nokey: identical (errors=2). dropsecond on a freshly restarted server: \"TP=1 FN=0 FP=1 TN=0 | errors=1\" -> first request answered and credited, second dropped and counted against, run continues. Outputs in $S/gh_<mode>.out and $S/gh_dropsecond_fresh.out. (The first dropsecond grade_http row with errors=2 was an artifact: the evaluate.py run had already consumed that server's first request; it was re-run on a fresh server.)\n\n(6) Context: grep shows no test under defender_product/tests or dataset/tests references evaluate.py, score_over_http or grade_http; defender_product/README.md:184 still documents \"python tools/evaluate.py --benign ... --malicious ... --url http://127.0.0.1:8080\"; dataset/tools/validate_frozen_candidate.py lines 31-44 use urlopen(timeout=5), type-check result in (0,1), catch every exception per sample, and set result=None with error 'Five-second budget exceeded' when seconds >= 5.",
+   "numbers": {
+    "evaluate_py_sha256_current": "8a10b336283335d92076535a0d176ace211d4929dbed5822be6fd8a4cf66a43e",
+    "evaluate_py_sha256_reviewed": "8a10b336283335d92076535a0d176ace211d4929dbed5822be6fd8a4cf66a43e",
+    "evaluate_py_identical_to_reviewed": true,
+    "evaluate_py_http_timeout_s": 30,
+    "grade_http_py_sha256_current": "c489ba07f2a5c1c8e1956c4b5c1c84647a7e3e1019d5256b0a2eeb3618339325",
+    "grade_http_in_review_hash_list": false,
+    "grade_http_urlopen_timeout_s": 10,
+    "challenge_deadline_s": 5,
+    "review_script_rerun": {
+     "port": 19401,
+     "delay_s": 5.2,
+     "returned_score": 1,
+     "failed": false,
+     "elapsed_s": 5.20822295799735,
+     "counted_as_detected_by_existing_report": true,
+     "correct_detected_under_5_second_rule": false,
+     "review_original_elapsed_s": 5.206128833000548
+    },
+    "evaluate_fn_probe": {
+     "late_5.2s": {
+      "outcome": "yielded",
+      "score": 1,
+      "failed": false,
+      "elapsed_s": 5.208
+     },
+     "drop": {
+      "outcome": "raised",
+      "exception": "http.client.RemoteDisconnected",
+      "elapsed_s": 0.001
+     },
+     "badjson": {
+      "outcome": "raised",
+      "exception": "json.decoder.JSONDecodeError",
+      "elapsed_s": 0.002
+     },
+     "nokey": {
+      "outcome": "raised",
+      "exception": "KeyError",
+      "elapsed_s": 0.001
+     }
+    },
+    "evaluate_cli": {
+     "late_5.2s": {
+      "exit": 0,
+      "wall_s": 5.27,
+      "tpr": 1,
+      "latency_max_s": 5.207,
+      "over_budget_printed": 1,
+      "json_written": true
+     },
+     "verylate_11s": {
+      "exit": 0,
+      "wall_s": 11.08,
+      "tpr": 1,
+      "latency_max_s": 11.0047,
+      "over_budget_printed": 1,
+      "json_written": true
+     },
+     "drop": {
+      "exit": 1,
+      "wall_s": 0.075,
+      "json_written": false,
+      "exception": "http.client.RemoteDisconnected",
+      "line": 66
+     },
+     "badjson": {
+      "exit": 1,
+      "wall_s": 0.07,
+      "json_written": false,
+      "exception": "json.decoder.JSONDecodeError",
+      "line": 67
+     },
+     "nokey": {
+      "exit": 1,
+      "json_written": false,
+      "exception": "KeyError",
+      "line": 71
+     },
+     "dropsecond_2_samples": {
+      "exit": 1,
+      "samples_scored_before_abort": 1,
+      "json_written": false
+     }
+    },
+    "grade_http_cli_2_sample_set": {
+     "late_5.2s": {
+      "TP": 1,
+      "FN": 0,
+      "FP": 1,
+      "TN": 0,
+      "errors": 0,
+      "latency_max_ms": 5219,
+      "wall_s": 10.5,
+      "late_malware_credited": true
+     },
+     "verylate_11s": {
+      "TP": 0,
+      "FN": 1,
+      "FP": 1,
+      "TN": 0,
+      "errors": 2,
+      "latency_max_ms": 10009,
+      "wall_s": 20.1
+     },
+     "drop": {
+      "TP": 0,
+      "FN": 1,
+      "FP": 1,
+      "TN": 0,
+      "errors": 2,
+      "run_completed": true
+     },
+     "badjson": {
+      "TP": 0,
+      "FN": 1,
+      "FP": 1,
+      "TN": 0,
+      "errors": 2,
+      "run_completed": true
+     },
+     "nokey": {
+      "TP": 0,
+      "FN": 1,
+      "FP": 1,
+      "TN": 0,
+      "errors": 2,
+      "run_completed": true
+     },
+     "dropsecond_fresh": {
+      "TP": 1,
+      "FN": 0,
+      "FP": 1,
+      "TN": 0,
+      "errors": 1,
+      "run_completed": true
+     }
+    },
+    "ports_used": [
+     19401,
+     19402,
+     19403,
+     19404,
+     19405,
+     19406
+    ],
+    "mock_servers_stopped": true,
+    "tests_referencing_either_tool": 0
+   },
+   "notes_for_fix": "evaluate.py (defender_product/tools/evaluate.py, score_over_http lines 57-71): (a) set the per-sample connection timeout to the challenge budget (5 s, or make it --deadline with default 5.0) and, independently of the socket timeout, treat elapsed > deadline as a non-answer even when a body arrived; (b) wrap request/getresponse/read/json.loads/float(payload[\"result\"]) in try/except (socket.timeout, OSError incl. RemoteDisconnected/ConnectionResetError, http.client.HTTPException, ValueError/JSONDecodeError, KeyError, TypeError) and yield the sample as a non-answer instead of letting the generator abort main(); (c) validate reply.status == 200 and result is int in (0,1) (grade_http accepts True/False because bool == int); (d) decide the mapping explicitly: for malware a late/missing/malformed reply must count as a miss (score 0 at the deployed threshold), for goodware it should be reported as an operational error (not a detection) and the sample must stay in the denominator; add a separate \"late\"/\"transport_error\" counter per label to the printed summary and the --json report rather than the current \"unparseable\" field (which is meant for the in-process LIEF-failure path and is never set on the HTTP path); (e) keep the \"over budget\" latency line but derive TPR from the deadline-adjusted decisions; (f) write partial --json output or at least do not lose already-scored samples on a transport failure. grade_http.py (dataset/tools/grade_http.py): change urlopen timeout=10 to 5 and add the same elapsed-time check (if time.time()-t > 5: res = None) before the `res not in (0,1)` test, and consider `type(res) is int` to reject booleans; its existing bare-except/continue behaviour for drops and malformed bodies is already correct. The shortest path is to port the logic already in dataset/tools/validate_frozen_candidate.py lines 31-44 (timeout=5, type-checked result, per-sample try/except, seconds >= 5 -> result None) into both tools, or make both call a shared helper. Add a unit test with a mock BaseHTTPRequestHandler (sleep 5.2 s, close without response, truncated JSON, missing key) asserting the late malware counts as FN and transport failures do not abort; currently no test references either tool. Also update defender_product/README.md:184 to state the deadline semantics of --url runs. Note the socket timeout in both tools is a per-read inactivity timeout, not a total deadline, so the wall-clock check is required in addition to the timeout argument."
+  },
+  {
+   "finding": "Findings 7, 8 and 9 all reproduce on the CURRENT tree; the three SOTA_RESEARCH.md literature items are mixed (ERDALT: yes; Lucas: not in SOTA_RESEARCH.md but still asserted in COMPARISON_REPORT/THREAT_MODEL/PITFALL_AUDIT; label-efficient F1: no, the doc labels them as F1).\n\nFINDING 7 (README) - REPRODUCES on current code. \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/README.md\" was edited after the review (sha256 now 41360393... vs reviewed b2a2da25...; a v3.3 banner was inserted at lines 8-17, which shifts the review's line 15 to line 27) but every flagged statement survives: line 19 \"**Deployed model: `rf_adv`**\", lines 26-27 \"`rf_adv` fixes all three, measured on **held-out** malware: 1 % FPR by construction, **66 % recent-malware detection**\"; line 113 under the heading \"Established - FPR and TPR (for `rf_adv`)\" (line 106): \"**Held-out recent-malware detection 66 %** (`rf_adv` 59 %; supplied ~9 %)\". The README even contradicts itself two lines later (28-29: \"clean held-out recent detection (66 -> 59 %) versus the clean `rf_augmented`\"). The stored JSON confirms 66 % belongs to rf_augmented: dataset/results/adversarial_training.json (hash unchanged since review) nfs_rf_augmented.recent_detect k=287 n=433 rate=0.66282; nfs_rf_adv.recent_detect k=254 n=433 rate=0.58661. recent_test.json contains only rf_tuned and rf_augmented (no rf_adv entry at all) and a different metric (rf_augmented tpr_at_fpr_0.01=0.2818 at a recent-calibrated threshold 0.9075), so the 66 % figure can only come from adversarial_training.json. Configuration table lines 151-152 still read \"| `DF_MODEL_DIR` | `/app/models/nfs`|\" and \"| `DF_MALWARE_THRESHOLD` | `0.25` |\" (and 159-160 \"`0.25` is the competition default\"), while \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/Dockerfile\" (hash unchanged since review) sets line 12 \"DF_MODEL_DIR=/app/models/rf_adv\", line 13 \"DF_MALWARE_THRESHOLD=0.820932\". README line 33-34 still says rf_augmented \"remains in the repo and is one `DF_MODEL_DIR` away for the clean-only comparison\", while the Dockerfile's only model copy is line 28 \"COPY models/rf_adv ./models/rf_adv\" (comment lines 25-27: the supplied model, rf_augmented and rf_tuned \"live in the repo's dataset/\"). Extra staleness: README line 198 \"models/nfs/ ... manifest.json with SHA-256s\", line 201 \"tests/ 26 tests\" (suite now has 75).\n\nFINDING 8 (COMPARISON_REPORT) - REPRODUCES exactly: \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/dataset/docs/COMPARISON_REPORT.md\" is byte-identical to the reviewed state (sha256 5c98a67c... matches reviewed-state-hashes.json). Lines 176-179: \"**Honest bottom line vs the challenge goals.** The 1 % FPR bound is met by construction. The 95 % TPR bound is **not** reached in the NFS feature space (best 79.5 % clean at 1 % FPR); closing that gap needs richer byte/string features (S6), which exceed the runtime budget.\" Same assertion at lines 97-99 (\"the price of the 1 GB / 5 s deployment budget ... closing it means adding byte/string features to the runtime, which is out of scope here\") and 18-19. max_features arithmetic lines 64-69: \"250,036 columns, of which only 22 are dense numeric header fields ... `max_features=\\\"sqrt\\\"` (~ 500 columns per split) sees a dense column in only **4.3 %** of split attempts ... Raising `max_features` to 0.05 (12,500 columns; a dense column visible ~99.99 % of splits)\". Recomputed (N=250,036, D=22): k=500 exact hypergeometric P(>=1)=0.043084 (4.3084 %), (1-k/N)^22 approximation 0.043082 (4.3082 %) -> 4.3 % correct; k=12,500 exact 0.676428 (67.6428 %), approximation 0.676413 (67.6413 %) -> 99.99 % is wrong (would need k ~ 85,529 columns, 34 % of N). The review's independent-results.json feature_selection_probability {500: 0.0430839, 12500: 0.6764282} agrees. The budget-exclusion claim is now contradicted by the project's own later artifacts: Dockerfile.ensemble lines 15/36 ship and serve models/ember_gbdt (EMBER-2381 LightGBM) with rf_adv and ember_ft_v33; RICHER_FEATURES_ENSEMBLE.md lines 3-4 \"breaking the ~80% ceiling of the NFS hashed feature space by moving to EMBER's 2381 rich features\", line 19 ember_gbdt EMBER-2381 93.7 %, lines 104-109 container \"307 MiB, p95 920 ms\"; V3_DETECTOR.md lines 21-23 (fusion member e = ember_gbdt, EMBER-2381) and 70-71 \"Latency p95 was 56 ms ... memory 188 MiB ... A 33 MB file took 1.43 s on 1 CPU (budget 4 s)\"; V33_STATUS.md lines 53-54 p95 38/51 ms, 60 MB files 1.94-4.00 s, peak 897/973 MiB; README lines 8-13 describe v3.3 serving ember_gbdt. No erratum links COMPARISON_REPORT to these (the only \"Errata\" section, V32_STATUS.md line 77, concerns v3.2 sample counts).\n\nFINDING 9 (tests/integrity) - REPRODUCES, with one partial point. tests/common.py line 10 (hash unchanged): MODEL_DIR = pathlib.Path(os.environ.get(\"DF_TEST_MODEL_DIR\", ROOT / \"models\" / \"nfs\")). tests/test_server.py (hash differs from review, mtime Oct 15, but the assertions are present) builds the server from MODEL_DIR (lines 33, 37) and asserts line 53 info[\"n_features\"] == 250041, line 55 info[\"threshold\"] == 0.25; tests/test_model.py line 28 also asserts 250041. Schemas: models/nfs n_features 250041 (NFS_21_ALL_hash_50000_WITH_MLSEC20); models/rf_adv 250037 (NFS_adv_all_0.6, 100 trees, 2,036,122 nodes); rf_augmented 250037. PARTIAL: rf_adv IS now loaded by tests, but only as a v3-ensemble member - tests/test_v3.py lines 14-19 and tests/test_v31.py lines 18-23 set \"DF_RF_DIR\": ROOT / \"models/rf_adv\", and EnsembleV3Test (test_v3.py:70-77) / EnsembleV31Test (test_v31.py:108) call defender.ensemble.Ensemble(), whose __init__ does self._rf = Model(os.environ[\"DF_RF_DIR\"], \"training\") (ensemble.py:62); these ran (not skipped). No test loads rf_adv through the single-model defender.server path or pins its 250,037 features / 0.820932 threshold. No test exercises a server timeout/overrun, queue saturation or slow upload: grep of tests/ for timeout|overrun|queue|saturat|slow|budget|REQUEST_BUDGET|DF_WORKERS|workers|WorkerPool|deadline hits only urllib client timeouts (test_server.py:18,49,51,97,131) and the oversize-body test (line 103, MAX_BODY_BYTES+1). Notably defender/server.py was rewritten during this check (mtime Oct 21 17:53:46, backup server.py.pre-review 8,204 B -> 10,901 B, new defender/workers.py 9,321 B; docstring lines 9-17 \"Budget accounting (review 2026-09-21, finding 2) ... body is read under a socket deadline; inference runs in a forked worker process that is SIGKILLed at the deadline ... admission is bounded\") with no test added (newest test file Oct 20 21:16). Model.__init__ in defender/model.py (hash unchanged, 29326b35...) does NOT verify manifest digests: lines 41-42 `arrays = {name: np.load(directory / f\"{name}.npy\", mmap_mode=\"r\", allow_pickle=False) for name in ARRAY_NAMES}`; the only checks are line 28 format_version, 70-71 `if offset != self.n_features: raise ValueError(\"Feature layout does not match the declared width\")`, 73-77 `if self._roots.shape != (int(self.schema[\"n_trees\"]),): raise ValueError(\"Unexpected tree root count\")` / `if array.shape != (int(self.schema[\"n_nodes\"]),): raise ValueError(\"Unexpected forest array shape\")`, 78-79 scaling-vector shape. grep \"manifest|sha256|hashlib|digest\" over defender/*.py: model.py only line 130 reports schema.get(\"source_sha256\"); manifest.json is written by tools/export_legacy_model.py:301-317 and read by no runtime or test code (only ember2024.py:26-32, the v5 path, hashes its own files). Full suite: 75 tests, OK, 0 failures/0 errors/0 skipped - run twice, the second (4.838 s) against the rewritten server.py (sha256 7b365cb9...); per module test_ember2024 5, test_features 4, test_gbdt 4, test_hashing 6, test_model 7, test_server 9, test_v3 15, test_v31 19, test_v4 6 (review-era count was 30; README says 26).\n\nSOTA_RESEARCH.md (hash unchanged since review, 8f235a68...): ERDALT - YES, implies a certificate: line 116 \"**The defense that fits us: design-level monotonicity + a reject-option stage.**\"; 117-121 \"**ERDALT** (Certifiably Robust Malware Detectors by Design ...): a linear post-processing layer enforcing **monotonicity on attacker-additive EMBER features** -> **93 % AUC / 96 % robust** ... Because attackers can usually only *add* features, a monotone/non-negative model is robust-by-construction to feature-addition.\"; 127-129 recommendation \"(a) enforce **monotone constraints** on attacker-additive features (import/section counts, appended-content-derived)\"; 201 \"**Robustness by design - monotone constraints (ERDALT pattern) + a reject-option stage**\"; 212 \"robust-by-design to cheap additive\"; 227 \"ERDALT (monotone certified-by-design)\". Nothing distinguishes ERDALT's empirical method from its certified construction or notes that NFS signed hashing + L2 normalization is not monotone under token addition. Lucas - NOT in SOTA_RESEARCH.md (0 hits for \"lucas\"; its only adversarial-training lines 124-125 and 131 do not equate augmentation with attack training). The equation lives in COMPARISON_REPORT.md:193 \"**deployed `rf_adv` applies the Lucas fix** (train on the attack)\", :216-217 \"The fix, per **Lucas (USENIX'23)** - *train on the attack*, not on plain augmentation - is now implemented and deployed.\", THREAT_MODEL.md:123-125 \"adversarial training on these transforms (Lucas, USENIX'23), which plain augmentation does not substitute for - is now **implemented and deployed** as `rf_adv`\", PITFALL_AUDIT.md:85-86 \"The Lucas remedy (train on the attack) is **implemented and deployed** as `rf_adv`\"; PAPER_CONCEPTS.md:97 already rates it PARTIAL. Label-efficient - NO: lines 142-145 present the numbers explicitly as F1 (\"recovers most of the full-relabel F1 gap at a **2 % monthly labeling budget** (no-retrain F1 66 -> full-relabel 91 -> BADGE-AL@2 % ~ 82)\"); the only stretch is \"validated on *our exact stack*\"; lines 204-205 cite AL/SSL as a roadmap item without any TPR/FPR or 95 %/1 % claim.",
+   "reproduces": "YES",
+   "evidence": "Commands (all from the project root, python = \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/.venv/bin/python\" -I):\n1. Hash comparison vs review: python -I reading reports/verification-2026-09-21/reviewed-state-hashes.json and hashlib.sha256 of current files -> README.md b2a2da25.. (reviewed) vs 41360393.. (current, changed); COMPARISON_REPORT.md 5c98a67c.. unchanged; tests/common.py bbd6e16c.. unchanged; tests/test_server.py 81675562.. vs 91e76a24.. (changed); defender/model.py 29326b35.. unchanged; SOTA_RESEARCH.md 8f235a68.. unchanged; Dockerfile 473164d4.. unchanged; adversarial_training.json 3ff524c6.. unchanged; recent_test.json 6d53d4af.. unchanged.\n2. cat -n defender_product/README.md (lines 19-36, 106-116, 147-160, 198, 201); cat -n defender_product/Dockerfile (lines 12-13, 25-28); cat -n defender_product/Dockerfile.ensemble (lines 15-17, 35-38).\n3. python -I json.load of dataset/results/recent_test.json -> models: ['rf_tuned','rf_augmented'] only; dataset/results/adversarial_training.json -> nfs_rf_augmented.recent_detect {k:287,n:433,rate:0.6628175519630485}, nfs_rf_adv.recent_detect {k:254,n:433,rate:0.5866050808314087}; review's independent-results.json recent_models.rf_adv.all.tpr k=254/433, rf_augmented 287/433 (same).\n4. sed -n '55,80p;165,185p;85,100p;15,22p;188,196p;212,220p' dataset/docs/COMPARISON_REPORT.md; grep -n -i -E \"runtime budget|exceed|richer|max_features|4\\.3|99\\.99|12,500\" (hits at 19, 66, 68, 94, 99, 178-179).\n5. Probability script (Fraction-exact product_{i=0}^{21}(N-k-i)/(N-i) and (1-k/N)^22, N=250036): k=500 -> 0.043084 / 0.043082; k=12500 -> 0.676428 / 0.676413; k for 99.99 % ~ 85,529.\n6. cat -n defender_product/tests/common.py, tests/test_server.py, defender/model.py (lines 1-140); sed -n '68,110p' tests/test_v3.py; sed -n '1,45p' tests/test_v31.py; sed -n '55,66p' defender/ensemble.py; grep -rn -E \"manifest|sha256|hashlib|digest\" defender/*.py; grep -rn -E \"rf_adv|timeout|overrun|queue|saturat|slow|budget|REQUEST_BUDGET|DF_WORKERS|workers|WorkerPool|deadline\" tests/; python -I printing n_features from models/{nfs,rf_adv,rf_augmented}/schema.json -> 250041 / 250037 / 250037; cat models/rf_adv/manifest.json (8 files with sha256, total_artifact_bytes 59018349, performance_claims fpr_validated=false, tpr_validated=false).\n7. cd \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product\" && \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/.venv/bin/python\" -I -m unittest discover -s tests -t . (-v on the first run) -> run 1: \"Ran 75 tests in 12.908s OK\"; run 2 (after server.py/workers.py were rewritten at 17:53:46): \"Ran 75 tests in 4.838s OK\"; grep -c skipped -> 0. Logs: /private/tmp/claude-501/-Users-seshadithyasaravanan-Desktop-CSCE-704-Model/162af773-f9f6-4002-89df-456c9332050c/scratchpad/repro/f789/unittest.log and /private/tmp/claude-501/-Users-seshadithyasaravanan-Desktop-CSCE-704-Model/162af773-f9f6-4002-89df-456c9332050c/scratchpad/repro/f789/unittest_rerun.log. shasum: defender/server.py 7b365cb920e6bb008fc528eec82b3ec01c5c89054bfb07f64be5e895f1951c77, defender/workers.py a7425486524662cfa09a0f801910333b784bdf6d9e2b9a317ae71f2d9e10e58e.\n8. sed -n '100,135p;138,148p;195,210p;224,232p' dataset/docs/SOTA_RESEARCH.md; grep -n -i lucas dataset/docs/*.md (SOTA_RESEARCH.md: none; COMPARISON_REPORT 193, 215-216; PITFALL_AUDIT 54, 85, 171, 210; THREAT_MODEL 124; PAPER_CONCEPTS 17, 92-97; V4_STATUS 54); grep -n -i errat dataset/docs/*.md -> only V32_STATUS.md:77.\n9. Richer-features contradiction: sed -n '1,12p;100,112p' RICHER_FEATURES_ENSEMBLE.md; sed -n '18,26p;66,73p' V3_DETECTOR.md; grep -n -i latency V33_STATUS.md (lines 53-54).\nDistinction: findings 7/8/9 reproduce on CURRENT files (COMPARISON_REPORT, common.py, model.py, Dockerfile, SOTA_RESEARCH hash-identical to the review; README and test_server.py changed but still carry the flagged text). The 254/433 vs 287/433 figures are confirmed from the current stored JSON (unchanged) and the review's own evidence; no model was re-scored here. No repository file was modified, no servers started.",
+   "numbers": {
+    "rf_adv_recent_detect_k": 254,
+    "rf_adv_recent_detect_n": 433,
+    "rf_adv_recent_detect_rate": 0.5866050808314087,
+    "rf_augmented_recent_detect_k": 287,
+    "rf_augmented_recent_detect_n": 433,
+    "rf_augmented_recent_detect_rate": 0.6628175519630485,
+    "readme_claimed_rf_adv_recent_detect_pct": 66,
+    "readme_lines_66pct": [
+     27,
+     113
+    ],
+    "readme_config_table_lines": [
+     151,
+     152
+    ],
+    "readme_config_table_model_dir": "/app/models/nfs",
+    "readme_config_table_threshold": 0.25,
+    "readme_one_env_var_away_line": 34,
+    "dockerfile_model_dir_line": 12,
+    "dockerfile_model_dir": "/app/models/rf_adv",
+    "dockerfile_threshold_line": 13,
+    "dockerfile_threshold": 0.820932,
+    "dockerfile_copy_models_line": 28,
+    "dockerfile_models_copied": [
+     "models/rf_adv"
+    ],
+    "comparison_report_budget_sentence_lines": [
+     176,
+     179
+    ],
+    "comparison_report_budget_sentence_also_lines": [
+     18,
+     19,
+     97,
+     99
+    ],
+    "comparison_report_max_features_lines": [
+     64,
+     69
+    ],
+    "N_columns": 250036,
+    "dense_columns": 22,
+    "k500_exact_hypergeometric": 0.043084,
+    "k500_approx_1_minus_pow": 0.043082,
+    "k500_doc_claim_pct": 4.3,
+    "k12500_exact_hypergeometric": 0.676428,
+    "k12500_approx_1_minus_pow": 0.676413,
+    "k12500_doc_claim_pct": 99.99,
+    "k_needed_for_99_99pct_approx": 85529,
+    "review_feature_selection_probability": {
+     "500": 0.04308390102817827,
+     "12500": 0.6764282460029689
+    },
+    "tests_common_model_dir_line": 10,
+    "tests_common_model_dir_default": "models/nfs",
+    "test_server_n_features_line": 53,
+    "test_server_n_features_asserted": 250041,
+    "test_server_threshold_line": 55,
+    "test_server_threshold_asserted": 0.25,
+    "nfs_schema_n_features": 250041,
+    "rf_adv_schema_n_features": 250037,
+    "rf_adv_n_nodes": 2036122,
+    "rf_adv_n_trees": 100,
+    "rf_adv_manifest_total_artifact_bytes": 59018349,
+    "tests_loading_rf_adv_via_ensemble": [
+     "tests/test_v3.py:17 EnsembleV3Test",
+     "tests/test_v31.py:21 EnsembleV31Test"
+    ],
+    "tests_loading_rf_adv_via_single_model_server": 0,
+    "tests_covering_timeout_queue_slow_upload": 0,
+    "model_py_np_load_lines": [
+     41,
+     42
+    ],
+    "model_py_manifest_reads": 0,
+    "model_py_sha256_checks": 0,
+    "unittest_run1_tests": 75,
+    "unittest_run1_seconds": 12.908,
+    "unittest_run2_tests": 75,
+    "unittest_run2_seconds": 4.838,
+    "unittest_failures": 0,
+    "unittest_errors": 0,
+    "unittest_skipped": 0,
+    "review_era_test_count": 30,
+    "readme_stated_test_count": 26,
+    "per_module_tests": {
+     "test_ember2024": 5,
+     "test_features": 4,
+     "test_gbdt": 4,
+     "test_hashing": 6,
+     "test_model": 7,
+     "test_server": 9,
+     "test_v3": 15,
+     "test_v31": 19,
+     "test_v4": 6
+    },
+    "sota_erdalt_lines": [
+     116,
+     121,
+     127,
+     129,
+     201,
+     212,
+     227
+    ],
+    "sota_lucas_mentions": 0,
+    "lucas_equating_lines_elsewhere": {
+     "COMPARISON_REPORT.md": [
+      193,
+      216,
+      217
+     ],
+     "THREAT_MODEL.md": [
+      123,
+      125
+     ],
+     "PITFALL_AUDIT.md": [
+      85,
+      86
+     ]
+    },
+    "sota_label_efficient_lines": [
+     142,
+     145
+    ],
+    "sota_label_efficient_presented_as": "F1",
+    "v3_detector_latency_p95_ms": 56,
+    "v3_detector_33MB_file_seconds": 1.43,
+    "v33_status_p95_ms_arm64": 38,
+    "v33_status_p95_ms_amd64": 51,
+    "hash_unchanged_since_review": [
+     "COMPARISON_REPORT.md",
+     "tests/common.py",
+     "defender/model.py",
+     "SOTA_RESEARCH.md",
+     "Dockerfile",
+     "adversarial_training.json",
+     "recent_test.json"
+    ],
+    "hash_changed_since_review": [
+     "defender_product/README.md",
+     "tests/test_server.py",
+     "defender/server.py"
+    ]
+   },
+   "notes_for_fix": "README (defender_product/README.md): change line 27 to attribute 66 % to rf_augmented and 59 % (254/433, Wilson 54.0-63.2 %) to rf_adv, and reword line 113 so the headline under \"for rf_adv\" is 59 %; update the configuration-table defaults at lines 151-152 to models/rf_adv and 0.820932 (or label the table as the code defaults vs the Dockerfile ENV), and either drop the \"one DF_MODEL_DIR away\" sentence at line 34 or state that the image contains only rf_adv and switching needs a rebuild plus DF_MALWARE_THRESHOLD=0.756536; fix line 198 (manifest.json implies pinning that model.py does not perform) and line 201 (26 -> 75 tests). COMPARISON_REPORT.md: replace \"99.99 %\" at line 68 with \"~68 %\" (exact 67.64 %) and soften the mechanism claim (tree split search is not a single draw); rewrite lines 176-179 and 97-99 to say the richer EMBER-2381 model was later measured within budget (cross-reference RICHER_FEATURES_ENSEMBLE.md S6 and V3_DETECTOR.md \"33 MB file 1.43 s, p95 56 ms\") instead of \"exceed the runtime budget\", or add a dated erratum. Tests: add a deployment-target test that builds defender.server from models/rf_adv (e.g. DF_TEST_MODEL_DIR default or a second test class) asserting n_features 250037 and threshold 0.820932; add tests for the new workers.py/server.py budget path (worker overrun -> 1 inside budget, admission saturation -> 1, stalled/partial upload -> response before 5 s, worker recovery and subsequent goodware -> 0), since server.py was rewritten against review finding 2 with no accompanying test. Model.__init__: either verify manifest.json sha256 (and byte sizes) at startup or at image build, or state in README that manifest hashes are provenance metadata only. SOTA_RESEARCH.md: at lines 117-121/201/227 distinguish ERDALT's empirical monotone post-processing from its separately certified construction and note that NFS signed hashing + L2 normalization is not coordinatewise monotone under token addition; the Lucas-equating language is in COMPARISON_REPORT.md:193,216-217, THREAT_MODEL.md:123-125 and PITFALL_AUDIT.md:85-86 (not SOTA_RESEARCH.md) and should be reworded to \"random dictionary-level augmentation with these transforms\", matching PAPER_CONCEPTS.md:97's own PARTIAL rating; the AL/SSL F1 passage (142-145) is already labelled F1 and needs at most a note that \"our exact stack\" means the paper's RF+EMBER setup, not this product."
+  },
+  {
+   "finding": "FINDING 5 (metrics() in dataset/tools/evaluate_models.py mishandles tied scores in its ROC/PR integration and applies a strict > rule to a threshold taken from a cumulative ranking, so AUC is row-order dependent and TPR@FPR is under-reported) REPRODUCES ON THE CURRENT CODE. The file is byte-identical to the reviewed state (sha256 f7b4a68573b71dc9ec5734266c06324c5a14a53dfacf986ae6729dd0d1a3429a == entry in reviewed-state-hashes.json; mtime Sep 19 17:36; metrics() is at lines 33-67). The review's toy counterexamples reproduce exactly, and my additional cases (cross-class ties, 0.01-grid RF-like scores, 100-benign/1-FP-allowed) show order-dependent AUC and order-dependent reported thresholds. Real-world impact on the stored results is small: every stored tpr_at_fpr_0.01 is at most 1 malicious sample (0.23 pp on the 433-malware recent set, 0 on the 25k EMBER subsample) below the tie-aware strict-> optimum, and stored roc_auc values differ from sklearn by between 5.5e-8 and 2.4e-4; the largest AUC error observed is +0.0062 for the 100-tree nfs model on the 493-row recent set (115 unique scores), where shuffling rows alone moves metrics()' AUC across a 0.0075 range. The bug never affects the deployed thresholds: package_model.py does not call E.metrics(); its choose_threshold() scans unique benign scores ascending with the strict > rule (the correct tie-aware selector), and its stored rf_adv threshold 0.8209317347072365 equals my tie-aware cut on the review's reconstructed 30k/30k calibration subset. Also confirmed: the 'ties pushed us over' correction branch inside metrics() is dead code (fired 0 times in 71,244 selections on heavily tied data), because count(benign > cut) <= cumulative fp at that rank by construction.",
+   "reproduces": "YES",
+   "evidence": "Scratch dir: /private/tmp/claude-501/-Users-seshadithyasaravanan-Desktop-CSCE-704-Model/162af773-f9f6-4002-89df-456c9332050c/scratchpad/repro/finding5/ (scripts small_cases.py, npz_recompute.py, rescore_ember_temporal.py, rescore_recent_drift.py; outputs small_cases.json, npz_recompute.json, rescore_results.json, rescore.log, rescore_recent_drift.json, plus *-scores.npz dumps). PY=\"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/.venv/bin/python\" (sklearn 1.9.1, numpy 2.2.6, Python 3.12.5).\n\n(1) Unchanged file: `shasum -a 256 \".../dataset/tools/evaluate_models.py\"` -> f7b4a685... identical to reports/verification-2026-09-21/reviewed-state-hashes.json line 49. Repo has no commits (git log empty; dataset/ untracked), so hash comparison is the only version evidence.\n\n(2) Toy cases, `$PY -I small_cases.py small_cases.json` (imports metrics from the current file):\n - scores [0.5,0.5] labels [0,1]: metrics roc_auc=0.0, pr_auc=0.25; labels [1,0]: roc_auc=1.0, pr_auc=0.0. sklearn roc_auc=0.5, AP=0.5. (matches review's metric_tie_counterexample 0.0/1.0/0.5)\n - scores [0.1,0.9] labels [0,1] (and reversed): metrics tpr_at_fpr_{0.001,0.01,0.05}=0.0, threshold=0.9, pr_auc=0.0, roc_auc=1.0; tie-aware strict->: threshold 0.1, FPR 0.0, TPR 1.0; sklearn AP=1.0. (matches threshold-counterexample.json)\n - Case A, 8 rows with cross-class ties at 0.9/0.5/0.1 (same multiset, two label orders): metrics roc_auc 0.625 vs 0.375; sklearn 0.5 both.\n - Case B, 20+20 scores on a 0.01 grid, three row orders: metrics roc_auc 0.8175 / 0.8225 / 0.8275; sklearn 0.8225. metrics tpr@1% 0.50 (thr 0.59) vs tie-aware 0.55 (thr 0.58, FPR 0); tpr@5% 0.55 vs 0.60.\n - Case C, benign {0.2,0.3,0.3}, malicious {0.8,0.8,0.8}: metrics tpr@1%=0.0 (thr 0.8), pr_auc 0.667; tie-aware tpr 1.0 at thr 0.3; AP 1.0.\n - Case D, 100 benign (1 FP allowed), 10 malicious tied with the 2nd-highest benign at 0.80: metrics roc_auc 0.98667 (ordered) vs 0.99267 (shuffled), sklearn 0.99; reported threshold_at_fpr_0.01 = 0.9 (actual_fpr 0.0) in one order and 0.8 (actual_fpr 0.01) in the other; tpr@0.1% 0.0 vs tie-aware 0.333.\n\n(3) Review npz dumps, `$PY -I npz_recompute.py npz_recompute.json`:\n - nfs-recent-scores.npz (493 rows, 60/433, 115 unique scores): metrics roc_auc 0.8362971517 vs sklearn 0.8301000770 (delta +0.0061971); over 6 row orders metrics roc_auc ranged 0.8239030-0.8313703 (spread 0.0074673), tpr@1% ranged 0.4503464-0.4526559 (spread 0.0023095 = 1 sample). tpr@1% 0.45266 @ thr 0.42 equals tie-aware.\n - rf_adv-recent-scores.npz (375 unique): roc_auc identical to sklearn (0.9341416474, delta -1.1e-16); tpr@1% metrics 0.5288684 (229/433, thr 0.8574762) vs tie-aware 0.5311778 (230/433, thr 0.8568227, FPR 0): +1 sample; same +1 at 0.1% and 5%. pr_auc 0.9876666 vs AP 0.9899930.\n - rf_augmented-recent-scores.npz (386 unique): metrics roc_auc 0.9370669746 vs sklearn 0.9370477290 (delta +1.92e-5; review reported the same tie-corrected value); tpr@1% 0.2817552 (122/433, thr 0.9075284) vs tie-aware 0.2840647 (123/433, thr 0.9068254): +1 sample. These metrics() values are bit-identical to recent_test.json's rf_augmented entry (models/nfs_rf_augmented and defender_product/models/rf_augmented share array hashes).\n - rf_adv-full-ember-scores.npz (200k, 52,810 unique): metrics roc_auc 0.9769568469 vs sklearn 0.9769570341 (delta -1.87e-7); tpr@1% 0.76547 @ thr 0.8233236 identical to tie-aware; 6 row orders: AUC spread 8.4e-6, tpr@1% spread 0. Calibration subset (30k/30k): metrics roc_auc 0.97715452 vs sklearn 0.9771683106 (delta -1.38e-5); tpr@1% metrics 0.7674333 (thr 0.8209524) vs tie-aware 0.7674667 (thr 0.8209317347072362 == deployed operating_point.json threshold 0.8209317347072365): +1 of 30,000. Outside-calibration 140k: AUC delta +1.46e-7, tpr@1% +1 of 70,000. Deployed thr 0.820932 on full 200k: FPR 0.01051, TPR 0.76728 (matches review).\n - ember_gbdt-scores.npz (50k, 42,606 unique): AUC delta -1.1e-16; tpr@1% 0.93768 identical; tpr@0.1% +1 of 25,000.\n\n(4) Stored JSONs rescored with the same loader/seed/models, `$PY -I rescore_ember_temporal.py <scratch> > rescore.log` (load_jsonl(test.jsonl, 25000, 20260919); fast_score batch scoring, 29-56 s per model). Validation: for supplied, retrained_rf (EMBER) and rf_augmented (recent) every stored key (roc_auc, pr_auc, tpr/threshold/actual_fpr at 0.001/0.01/0.05) was reproduced bit-for-bit (|diff|<1e-9) by metrics() on the rescored scores, proving those stored numbers are metrics() output on these rows/models. For rf_tuned the operating-point keys reproduced exactly but roc_auc/pr_auc differed in the 8th decimal (EMBER: 0.9766020448 stored vs 0.9766020624 rerun) and 4th decimal (recent: 0.8196304850 vs 0.8197459584) because fast_score perturbs exact ties at ~1e-16, which itself demonstrates the tie sensitivity.\n ember_temporal.json deltas (stored metrics() vs sklearn/tie-aware on the same rows):\n - supplied (nfs, 1,132 unique scores): roc_auc stored 0.9762485632 vs sklearn 0.9762741392 (stored low by 2.56e-5); tpr@1% 0.71156 @ 0.88 (actual FPR 0.00988) == tie-aware (the 251st-largest benign score is 0.88, so no better strict-> cut exists); tpr@0.1%/5% also identical. pr_auc 0.9771933 vs AP 0.9767353.\n - retrained_rf: roc_auc delta -5.5e-8; tpr@1% 0.58728 identical; tpr@5% 0.74092 vs tie-aware 0.74096 (+1 of 25,000).\n - rf_tuned: roc_auc stored 0.9766020448 vs sklearn 0.9765950984 (stored high by 6.9e-6); tpr@1% 0.77868 identical (stored thr 0.7603333 vs tie-aware 0.7601667, same TPR); tpr@0.1% 0.59652 vs 0.59656 (+1).\n recent_test.json deltas:\n - rf_tuned: roc_auc stored 0.8196304850 vs sklearn 0.8196689761 (-3.85e-5 = exactly one tied benign/malicious pair, 1/(60*433)); tpr@1% stored 0.3810624 (165/433, thr 0.5485833) vs tie-aware 0.3833718 (166/433, thr 0.5472746, FPR 0): +1; +1 also at 0.1% and 5%. pr_auc 0.9685774 vs AP 0.9709457.\n - rf_augmented: as in (3): roc_auc +1.92e-5, tpr@1% +1 sample (0.2817552 -> 0.2840647).\n Bonus recent_drift.json (`$PY -I rescore_recent_drift.py <scratch>`; 1,655 rows, 200/1455, stored keys reproduced bit-for-bit): supplied/nfs (167 unique): roc_auc stored 0.7992886598 vs sklearn 0.7990532646 (+2.35e-4), 10 shuffles spread 9.0e-4; tpr@1% 0.1512027 @ 0.69 identical; tpr@5% stored 0.4439863 (thr 0.41, actual FPR 0.045) vs tie-aware 0.4481100 (thr 0.4027092, FPR 0.05): +6 of 1,455 (+0.41 pp). rf_tuned: AUC -2.4e-5; tpr@1% +1 (0.3422680 -> 0.3429553).\n\n(5) Dead branch: inline brute force (20,000 random tied datasets x 5 targets, 71,244 selections) - the `if achieved_fpr > target` branch fired 0 times.\n\nWhich stored numbers came from metrics(): in ember_temporal.json, recent_test.json, recent_drift.json and ember_aug.json, for every model entry the keys n_benign, n_malicious, roc_auc, pr_auc, tpr_at_fpr_{0.001,0.01,0.05}, threshold_at_fpr_*, actual_fpr_*, fpr_at_{0.25,0.5}, tpr_at_{0.25,0.5} are returned by metrics(); tpr_at_fpr_0.01_ci95 and slices are computed in main() from metrics()' threshold_at_fpr_0.01 and inherit its choice. fpr_at_/tpr_at_ fixed-threshold counts are plain `>` counts and are NOT affected by the bug. seconds_total, ms_per_sample, unparseable, model_dir, n_nodes are not from metrics(). The deployed operating_point.json thresholds (rf_adv 0.8209317347, rf_augmented 0.7565359549) come from package_model.choose_threshold, not metrics(), and are correct.",
+   "numbers": {
+    "evaluate_models_sha256": "f7b4a68573b71dc9ec5734266c06324c5a14a53dfacf986ae6729dd0d1a3429a",
+    "file_changed_since_review": false,
+    "toy_tie_auc": {
+     "labels_01": 0,
+     "labels_10": 1,
+     "sklearn": 0.5
+    },
+    "toy_separated_pair": {
+     "metrics_tpr_at_fpr_0.01": 0,
+     "metrics_threshold": 0.9,
+     "metrics_pr_auc": 0,
+     "tie_aware_threshold": 0.1,
+     "tie_aware_tpr": 1,
+     "sklearn_AP": 1
+    },
+    "case_B_0.01_grid_auc_by_row_order": [
+     0.8175,
+     0.8225,
+     0.8275
+    ],
+    "case_B_sklearn_auc": 0.8225,
+    "nfs_recent_npz": {
+     "n_unique_scores": 115,
+     "metrics_roc_auc": 0.8362971516551193,
+     "sklearn_roc_auc": 0.8301000769822942,
+     "auc_delta": 0.0061970746728251536,
+     "auc_spread_over_6_orders": 0.007467282525019159,
+     "tpr1pct_spread_over_6_orders": 0.0023094688221709236
+    },
+    "rf_adv_recent_npz": {
+     "metrics_roc_auc": 0.9341416474210931,
+     "sklearn_roc_auc": 0.9341416474210932,
+     "metrics_tpr1pct": 0.5288683602771362,
+     "tieaware_tpr1pct": 0.5311778290993071,
+     "samples_gained": 1
+    },
+    "rf_adv_full_ember_200k": {
+     "metrics_roc_auc": 0.9769568469,
+     "sklearn_roc_auc": 0.9769570341,
+     "tpr1pct_metrics": 0.76547,
+     "tpr1pct_tieaware": 0.76547
+    },
+    "rf_adv_calibration_60k": {
+     "metrics_roc_auc": 0.97715452,
+     "sklearn_roc_auc": 0.9771683105555555,
+     "metrics_tpr1pct": 0.7674333333333333,
+     "tieaware_tpr1pct": 0.7674666666666666,
+     "tieaware_thr": 0.8209317347072362,
+     "deployed_operating_point_thr": 0.8209317347072365
+    },
+    "ember_temporal_supplied": {
+     "stored_roc_auc": 0.9762485631999999,
+     "sklearn_roc_auc": 0.9762741391999998,
+     "stored_tpr1pct": 0.71156,
+     "tieaware_tpr1pct": 0.71156,
+     "stored_thr": 0.88,
+     "tieaware_thr": 0.88,
+     "n_unique_scores": 1132
+    },
+    "ember_temporal_retrained_rf": {
+     "stored_roc_auc": 0.9362075008,
+     "sklearn_roc_auc": 0.9362075559999998,
+     "stored_tpr1pct": 0.58728,
+     "tieaware_tpr1pct": 0.58728,
+     "tpr5pct_samples_gained": 1
+    },
+    "ember_temporal_rf_tuned": {
+     "stored_roc_auc": 0.9766020447999999,
+     "sklearn_roc_auc_on_rescore": 0.9765950984,
+     "stored_tpr1pct": 0.77868,
+     "tieaware_tpr1pct": 0.77868,
+     "stored_thr": 0.7603333333333333,
+     "tieaware_thr": 0.7601666666666668,
+     "tpr0.1pct_samples_gained": 1
+    },
+    "recent_test_rf_tuned": {
+     "stored_roc_auc": 0.8196304849884526,
+     "sklearn_roc_auc_on_rescore": 0.8196689761354887,
+     "stored_tpr1pct": 0.3810623556581986,
+     "tieaware_tpr1pct": 0.3833718244803695,
+     "stored_thr": 0.5485833333333333,
+     "tieaware_thr": 0.5472746101362733,
+     "samples_gained": 1
+    },
+    "recent_test_rf_augmented": {
+     "stored_roc_auc": 0.9370669745958429,
+     "sklearn_roc_auc": 0.9370477290223248,
+     "stored_tpr1pct": 0.2817551963048499,
+     "tieaware_tpr1pct": 0.2840646651270208,
+     "stored_thr": 0.9075284178187404,
+     "tieaware_thr": 0.9068253968253969,
+     "samples_gained": 1
+    },
+    "recent_drift_supplied": {
+     "stored_roc_auc": 0.7992886597938144,
+     "sklearn_roc_auc": 0.799053264604811,
+     "auc_spread_over_10_shuffles": 0.0009003436426117117,
+     "stored_tpr5pct": 0.4439862542955326,
+     "tieaware_tpr5pct": 0.44810996563573885,
+     "tpr5pct_samples_gained": 6
+    },
+    "pr_auc_minus_AP_range": [
+     -0.0023346648480151444,
+     0.0004580466305407205
+    ],
+    "ties_pushed_over_branch_fired": 0,
+    "ties_pushed_over_selections_tested": 71244,
+    "max_tpr1pct_underreport_pp_on_stored_sets": 0.231
+   },
+   "notes_for_fix": "Severity is as the review rated it (P2, reporting only): the toy failures are real and the function is order-dependent on real model output (nfs recent AUC moves by 0.0075 under shuffling), but every stored headline number is within +1 malicious sample of the tie-aware strict-> optimum and AUC errors are <= 0.0062 (<= 2.6e-5 on the EMBER 25k numbers). No stored conclusion flips. Fix in dataset/tools/evaluate_models.py metrics(): (a) replace the per-row cumsum/trapezoid ROC with sklearn.metrics.roc_auc_score (or group by np.unique(scores) before cumsum) and replace pr_auc with average_precision_score (the current trapezoid over (tpr, precision) omits the (recall 0, precision 1) endpoint and is not AP; expect reported pr_auc to rise by 2e-5..2.3e-3); (b) select the operating point directly as the lowest strict-> threshold: sort benign descending, k = floor(target*n_benign), cut = benign_desc[k] (-inf if k >= n_benign), tpr = mean(malicious > cut), fpr = mean(benign > cut) - this is exactly what package_model.choose_threshold already does, so simplest is to reuse that function for both; (c) delete the 'ties pushed us over' branch (provably dead) ; (d) keep fpr_at_/tpr_at_ fixed-threshold keys as they are. After the fix, regenerate dataset/results/{ember_temporal,recent_test,recent_drift,ember_aug}.json (run_evaluation.sh currently uses --limit-per-class 30000 while the stored ember_temporal.json was produced with 25000, so pass 25000 to reproduce; rerun cost ~30-60 s per model with fast_score, ~100-170 s with the per-row path) and expect: tpr_at_fpr_0.01 unchanged on EMBER for all three models, +1/433 for both recent_test models, roc_auc changes in the 5th-6th decimal, pr_auc up slightly. Do not touch package_model.py or the operating_point.json thresholds: they are already computed by the correct selector (0.8209317347072365 reproduced tie-aware). Scripts to reuse for the regression test: /private/tmp/claude-501/-Users-seshadithyasaravanan-Desktop-CSCE-704-Model/162af773-f9f6-4002-89df-456c9332050c/scratchpad/repro/finding5/small_cases.py (toy assertions against sklearn) and npz_recompute.py (score-dump recheck)."
+  },
+  {
+   "finding": "FINDING 3 (robustness claims) REPRODUCES ON THE CURRENT TREE. (a) dataset/tools/adv_transforms.py is byte-identical to what the review hashed (sha256 8ca0380d\u2026a783a) and still edits NFS attribute dicts only: its only import is `random`, and its own docstring (lines 8-10) says \"Everything here edits an already-extracted attribute dict the way a functionality-preserving PE rewrite would edit the corresponding fields. No PE bytes are produced, decrypted, or executed.\" All six transforms return `dict`. (b) dataset/tools/train_nfs_adversarial.py is also byte-identical to the reviewed file (fe19973d\u20264953); its generation loop (lines 76-80) is `for _ in range(n_adv): m = rng.choice(malicious)[\"attributes\"]; d = rng.choice(benign)[\"attributes\"]; adv.append({\"label\": 1, \"attributes\": make_adversarial(m, d, args.adv_mode, rng)})` \u2014 pure random sampling; the RandomForest is first constructed at line 105, after the loop; no predict/loss/gradient/search anywhere in the file. (c) dataset/tools/eval_robustness.py (new since the review, mtime 2026-10-20, not in reviewed-state-hashes.json) applies 7 byte-level in-memory edits to real malware with LIEF 0.17.0: overlay_64k/1m/4m and strings_10k and cert_blob are raw `b + \u2026` appends with no parse at all; header_copy and section_inject go through `lief.PE.parse` \u2192 edit \u2192 `lief.PE.Builder(pe, config_t()).build()` \u2192 `bytes(bld.bytes())`. The ONLY validity check is `if pe is None: return None` on the INPUT (line 89-90); the Builder output is never re-parsed, never compared to the input, never size-checked, and nothing is executed (no subprocess/sandbox anywhere in dataset/tools, candidate_v5 or defender_product). Exceptions silently drop a sample from that attack's denominator (lines 120-126, 143); in every stored run n=349 for all attacks so no drops occurred. My characterization on 30 benign goodware EXEs (no malware touched) shows the Builder rewrites far more than the docstring says: with LIEF 0.17 config_t defaults (resources/relocations/tls/load_configuration/debug=True, imports/exports=False) header_copy rewrote .rsrc content in 17/30 files (median 381, max 2,334,329 non-header bytes changed), grew one file by 65,024 bytes, added a section to it (3\u21924) and made its Authenticode table unparseable; section_inject rewrote .rsrc in 17/30 and made the signature unparseable in 13/13 signed files. cert_blob never changes the target's CERTIFICATE_TABLE directory (0/30), so unsigned files stay unsigned (it is an overlay append of DER bytes, not \"signature theft\"). Every edited file still LIEF-re-parses with unchanged entry point and imports (30/30 per attack), so the suite is structurally plausible but functionally unverified. (d) The current docs still carry the unqualified claims the review objected to: \"deployed rf_adv applies the Lucas fix (train on the attack)\" (COMPARISON_REPORT.md:193, :216; PITFALL_AUDIT.md:85; THREAT_MODEL.md:124), \"measured functionality-preserving evasion\" (PITFALL_AUDIT.md:46), \"all functionality-preserving\" (PITFALL_AUDIT.md:70), \"realizable problem-space edits\" (PITFALL_AUDIT.md:82, :86, :91; COMPARISON_REPORT.md:173, :223, :254, :256), README.md:19/22/25/114 (\"adversarially hardened\", \"functionality-preserving adversarial variants\", \"cheap functionality-preserving evasion\"). COMPARISON_REPORT.md, PITFALL_AUDIT.md, THREAT_MODEL.md and DATASHEET.md are unmodified since 2026-09-21 11:0x (pre-review); README.md was edited 2026-10-20 but the paragraph is kept verbatim; the 2026-10-20 V32 errata section does not address this finding. Only PAPER_CONCEPTS.md:97 (\"PARTIAL \u2026 BUT our training transfor[ms are unguided]\") acknowledges the unguided nature. Additional caveat found: all 349 robustness-suite malware are in dataset/work/live_cache/meta_malware.jsonl (the ember_ft fine-tune pool), and all 349 also have byte-level attack variants in X_malware_adv.npy (used by train_v41.py only), so the v3.x/v4.x \"held-out\" robustness tables are in-sample for the ember_ft member \u2014 a caveat the status docs do state (V31_STATUS.md:37, V41_STATUS.md:56).",
+   "reproduces": "YES",
+   "evidence": "CODE (all on current tree; (a)/(b) files hash-identical to the review's reviewed-state-hashes.json lines 45,47):\n- adv_transforms.py:28-29 imports: `from __future__ import annotations` / `import random`. Lines 8-10 quoted in finding. Repro: `cd \".../dataset/tools\" && .../defender_product/.venv/bin/python -I -c \"import sys;sys.path.insert(0,'.');import random,adv_transforms as m;print(type(m.make_adversarial({...},{...},'C',random.Random(0))))\"` \u2192 `dict` for A,B,C,E,F,D; `dir(m)` has no lief/pefile/bytes names.\n- train_nfs_adversarial.py:71-82 (verbatim): `n_adv = int(args.adv_frac * len(malicious))` / `rng = random.Random(args.adv_seed)` / \u2026 / `adv = []` / `for _ in range(n_adv):` / `m = rng.choice(malicious)[\"attributes\"]` / `d = rng.choice(benign)[\"attributes\"]` / `adv.append({\"label\": 1, \"attributes\": make_adversarial(m, d, args.adv_mode, rng)})` / `rows = rows + adv` / `rng.shuffle(rows)`. `grep -n -iE \"forest|predict|loss|gradient|score|fit\\(|proba|evade|search|optimi\" train_nfs_adversarial.py` \u2192 forest only at lines 33,103,105,108,113; nothing else. Docstring line 8-9 still says \"This is the Lucas (USENIX'23) recipe \u2014 train on the attack \u2014 as opposed to plain data augmentation\". Post-review build_attack_cache.py (byte-level variants for ember_ft_v41) is likewise unguided: `rng = random.Random(\"v41:\" + sha)`, donor chosen by `rng.choice` inside eval_robustness.attack, no model query.\n- eval_robustness.py per attack (lines 72-107): clean\u2192`return b`; overlay_*\u2192`b + pad` (donor bytes tiled to 64 KiB/1 MiB/4 MiB), no parse; strings_10k\u2192`b + _strings(donor,10000)` (NUL-joined printable runs), no parse; cert_blob\u2192`b + sd[cd.rva:cd.rva+cd.size]` (donor cert bytes appended as overlay; target's data directory untouched), no parse of target; header_copy\u2192parse, set `header.time_date_stamps` + 6 optional-header version fields from donor, Builder rebuild; section_inject\u2192parse, `pe.add_section(Section(\".rdata2\"))` with \u2264256 KiB of donor .rdata, MEM_READ|CNT_INITIALIZED_DATA, Builder rebuild. Line 104-107: `bld = lief.PE.Builder(pe, lief.PE.Builder.config_t()); bld.build(); return bytes(bld.bytes())` \u2014 no re-parse of output. Only structural check: line 89 `if pe is None: return None` (input). Execution: none; `grep -rn --include='*.py' -E \"PE\\.Builder|subprocess|wine|sandbox|os\\.system|execv|cuckoo|speakeasy|qiling\" dataset/tools candidate_v5 defender_product | grep -v .venv` \u2192 only eval_robustness.py:105 for Builder and collect_*.py for `gh api` subprocess. Stored results dataset/work/exp/robustness_{v3,v31,v32,v33,v4,v41}.json: n=349 for every attack.\n- Characterization script: /private/tmp/claude-501/-Users-seshadithyasaravanan-Desktop-CSCE-704-Model/162af773-f9f6-4002-89df-456c9332050c/scratchpad/repro/finding3/characterise_eval_robustness.py (run: `.../defender_product/.venv/bin/python -I characterise_eval_robustness.py <out.json> 30`, 9.6 s), output in \u2026/finding3/characterise_goodware.json. Uses the real eval_robustness.attack with _init()'s exact donor selection (seed 7) on 30 benign EXEs \u22643 MiB from dataset/goodware/pe (13 Authenticode-signed). Results per attack: exceptions 0, None 0, re-parse failures 0, empty output 0, entry-point changes 0, import-table changes 0 (all 7). overlay_64k/1m/4m: +65,536/+1,048,576/+4,194,304 bytes, overlay only. strings_10k: +78,299\u2026+274,659 bytes, overlay only. cert_blob: +9,088\u2026+12,056 bytes, overlay only, cert_dir_changed 0/30, has_signatures after = 13 = before (unsigned targets stay unsigned). header_copy: .rsrc content hash changed 17/30 (.debug also in 2), non-header bytes rewritten min/med/max 0/381/2,334,329, size delta 0\u202665,024 (file 0a6f2db7d9e6: +65,024 bytes, sections 3\u21924, signature unparseable \u2192 has_signatures 13\u219212). section_inject: section count +1 in 30/30 (+2 in that file), size +512\u2026+262,500, .rsrc rewritten 17/30, non-header bytes med/max 5,328/2,334,309, signature unparseable in 13/13 signed files. Authenticode verify_signature(): 13/13 signed inputs OK before; after overlay_64k/strings_10k/cert_blob/header_copy \u2192 BROKEN 13/13 (header_copy: 12 BROKEN + 1 nosig); after section_inject \u2192 nosig 13/13.\n- In-sample check: `recent_test` malware 433 \u2212 84 feature-dups = 349; 349/349 present in live_cache/meta_malware.jsonl; 349/349 have variants in meta_malware_adv.jsonl (5,819 variants: overlay_1m 1455, overlay_4m 1455, strings_10k 1455, section_inject 1454); consumers of X_malware_adv: build_attack_cache.py, compare_v3_v4.py, train_v41.py only.\n\nDOC OCCURRENCES (grep -rniE over dataset/docs + defender_product/README.md; totals: robust 70, functionality-preserving 21, Lucas 13, realizable 11, train on the attack 6, problem-space 6, adversarially hardened 1). Judgements \u2014 A=accurate, O=overstated (feature-space presented as executable/realized evasion), Q=needs qualifier:\n\"functionality-preserving\": COMPARISON_REPORT.md:190 O (dict edits called \"edits to the exact fields\"); :221 Q (says \"in feature space\" but asserts functionality); DATASHEET.md:85 Q (says synthetic/never written as PEs; \"functionality-preserving\" unverified); SOTA_RESEARCH.md:15 A (literature); :47 A (literature); README.md:22 O; :25 O (\"collapsed to 9 % under a cheap functionality-preserving evasion\" \u2014 no evasion binary ever existed); :114 O; PAPER_CONCEPTS.md:67 Q (\"FEATURE transforms\" stated); :72 A (filename); :76 A (explicitly \"FEATURE space\"); :77 Q (\"adv_transforms.py covers s.7/s.1/s.8\" \u2014 only as dict edits); THREAT_MODEL.md:31 A (threat definition); :88-90 A (\"Delivered as an in-memory feature-space probe\"); :115 A (literature/limit); PITFALL_AUDIT.md:11 Q; :46 O (\"This audit measured functionality-preserving evasion\"); :55 A (literature); :63 Q (\"edits the attribute dict the way a \u2026 rewrite would\" \u2014 honest about dict, assumption unverified); :70 O (table header \"all functionality-preserving\", contradicted by :81 which admits D may not be realizable); :209 A (reference).\n\"Lucas\"/\"train on the attack\": COMPARISON_REPORT.md:193 O (\"deployed rf_adv applies the Lucas fix (train on the attack)\"); :215 A (paper list); :216-217 O (\"The fix, per Lucas \u2014 train on the attack, not on plain augmentation \u2014 is now implemented and deployed\" \u2014 what is implemented is unguided random augmentation); V4_STATUS.md:54 Q (byte-level variants, still unguided); THREAT_MODEL.md:124-125 O (\"adversarial training \u2026 (Lucas), which plain augmentation does not substitute for \u2014 is now implemented\"); PITFALL_AUDIT.md:54 A; :85-86 O (\"The Lucas remedy (train on the attack) is implemented and deployed\"); :171 O (\"Measured, then FIXED\"); :210 A; PAPER_CONCEPTS.md:17 Q (eval_robustness is byte-level and in-memory, but unvalidated and in-sample for ember_ft); :92-93 A; :97 A (only place that says PARTIAL / unguided). Also train_nfs_adversarial.py:8-9 docstring O.\n\"adversarially hardened\": README.md:19 O (hardened only against synthetic dict perturbations); COMPARISON_REPORT.md:141 (\"adversarially-hardened model\") O.\n\"realizable\": PITFALL_AUDIT.md:81 A (D flagged as possibly unrealizable); :82 O (\"A/B/C are realizable problem-space edits\" \u2014 never realized); :86 O; :91 O (F = numberof_sections+2..4, has_resources/has_relocations=1 in a dict); COMPARISON_REPORT.md:173 O; :223 O; :241 A; :251 A; :254 O; :256 O; THREAT_MODEL.md:130 Q (hedged \"not general robustness\" but still \"realizable\").\n\"problem-space\": COMPARISON_REPORT.md:251 A; PITFALL_AUDIT.md:82 O; PAPER_CONCEPTS.md:17 Q; :33 Q (byte edits, \"nothing written or executed\" is accurate; functionality not checked); :135 A (says \"in NFS feature space\"); V3_DETECTOR.md:54 Q (\"In-memory problem-space variants of 349 held-out malware\" \u2014 unvalidated bytes; not held-out for ember_ft).\n\"robust\" (70): literature/SOTA rows A \u2014 SOTA_RESEARCH.md:31,43,60,100,117,119,121,132,186,201,212; PAPER_CONCEPTS.md:11,80,88,89,196,197,211,214; PITFALL_AUDIT.md:50; THREAT_MODEL.md:114,118. Honest-limit sentences A \u2014 COMPARISON_REPORT.md:142,171; THREAT_MODEL.md:127,130; DATASHEET.md:88; V31_STATUS.md:46; V41_STATUS.md:28,56,61; V32_STATUS.md:101; V4_STATUS.md:56. Q (feature-space \"in-distribution robustness\" still presented as robustness) \u2014 COMPARISON_REPORT.md:261-264; PITFALL_AUDIT.md:94-95; PAPER_CONCEPTS.md:57,98,99,135; RICHER_FEATURES_ENSEMBLE.md:59. O \u2014 COMPARISON_REPORT.md:189 (\"Adversarial robustness was measured (negative) and then hardened\"); PITFALL_AUDIT.md:85 (\"not adversarially robust\"), :171. Status tables Q (byte-level in-memory, unvalidated, unexecuted, and in-sample for ember_ft; docs add \"in-sample caveat\" themselves) \u2014 V31_STATUS.md:37; V32_STATUS.md:41; V33_STATUS.md:51; V4_STATUS.md:29,36; V41_STATUS.md:24; V3_DETECTOR.md:54. Commands A \u2014 V31_STATUS.md:82, V32_STATUS.md:72, V33_STATUS.md:83.",
+   "numbers": {
+    "adv_transforms_sha256_current": "8ca0380dc3e06e82d45593d5572724e880f88f27e66c8da5a12a3d37548a783a",
+    "adv_transforms_matches_review_hash": true,
+    "adv_transforms_imports": [
+     "random"
+    ],
+    "adv_transforms_transforms_returning_dict": 6,
+    "train_nfs_adversarial_sha256_current": "fe19973d6a79e351accb8886426b7501756380f71985ae167b868c0ef4049953",
+    "train_nfs_adversarial_matches_review_hash": true,
+    "train_nfs_adversarial_generation_loop_lines": "77-80",
+    "train_nfs_adversarial_first_model_line": 105,
+    "eval_robustness_sha256_current": "8ef7734e721e8e380fc887a6e1aa6a89a66a57c90a97a03ca16596eff4f4dc73",
+    "eval_robustness_mtime": "2026-10-20 21:16",
+    "eval_robustness_in_review_hashes": false,
+    "lief_version": "0.17.0-038b6067",
+    "builder_config_defaults": {
+     "imports": false,
+     "exports": false,
+     "relocations": true,
+     "resources": true,
+     "tls": true,
+     "load_configuration": true,
+     "debug": true,
+     "overlay": true,
+     "dos_stub": true
+    },
+    "eval_robustness_attacks": 8,
+    "attacks_without_any_parse": [
+     "overlay_64k",
+     "overlay_1m",
+     "overlay_4m",
+     "strings_10k",
+     "cert_blob"
+    ],
+    "attacks_via_builder": [
+     "header_copy",
+     "section_inject"
+    ],
+    "output_reparse_checks": 0,
+    "executions": 0,
+    "stored_results_n_per_attack": 349,
+    "robustness_v3_tpr": {
+     "clean": 0.8768,
+     "overlay_64k": 0.9026,
+     "overlay_1m": 0.8539,
+     "overlay_4m": 0.8023,
+     "strings_10k": 0.8109,
+     "section_inject": 0.8625,
+     "header_copy": 0.9198,
+     "cert_blob": 0.8911
+    },
+    "characterisation_targets": 30,
+    "characterisation_signed_targets": 13,
+    "characterisation_exceptions": 0,
+    "characterisation_reparse_failures": 0,
+    "characterisation_ep_or_import_changes": 0,
+    "overlay_size_delta": {
+     "overlay_64k": 65536,
+     "overlay_1m": 1048576,
+     "overlay_4m": 4194304
+    },
+    "strings_10k_size_delta_min_max": [
+     78299,
+     274659
+    ],
+    "cert_blob_size_delta_min_max": [
+     9088,
+     12056
+    ],
+    "cert_blob_cert_dir_changed": 0,
+    "cert_blob_unsigned_targets_become_signed": 0,
+    "header_copy_rsrc_rewritten": "17/30",
+    "header_copy_nonheader_bytes_changed_min_med_max": [
+     0,
+     381,
+     2334329
+    ],
+    "header_copy_size_delta_min_max": [
+     0,
+     65024
+    ],
+    "header_copy_section_count_changed": "1/30",
+    "header_copy_signature_unparseable_after": "1/13",
+    "section_inject_section_count_changed": "30/30",
+    "section_inject_size_delta_min_max": [
+     512,
+     262500
+    ],
+    "section_inject_rsrc_rewritten": "17/30",
+    "section_inject_nonheader_bytes_changed_min_med_max": [
+     0,
+     5328,
+     2334309
+    ],
+    "section_inject_signature_unparseable_after": "13/13",
+    "authenticode_broken_after_any_attack": "13/13",
+    "recent_test_malware": 433,
+    "feature_dups_removed": 84,
+    "robustness_suite_malware": 349,
+    "suite_malware_in_ember_ft_pool": 349,
+    "suite_malware_with_byte_level_variants_in_X_malware_adv": 349,
+    "X_malware_adv_variants": 5819,
+    "doc_phrase_hits": {
+     "robust": 70,
+     "functionality-preserving": 21,
+     "lucas": 13,
+     "realizable": 11,
+     "train on the attack": 6,
+     "problem-space": 6,
+     "adversarially hardened": 1
+    },
+    "docs_unchanged_since_pre_review": [
+     "COMPARISON_REPORT.md 2026-09-21 11:02",
+     "PITFALL_AUDIT.md 2026-09-21 11:02",
+     "THREAT_MODEL.md 2026-09-21 11:02",
+     "DATASHEET.md 2026-09-21 11:04"
+    ],
+    "judgements_overstated": 30,
+    "judgements_needs_qualifier": 27,
+    "docs_acknowledging_unguided": [
+     "PAPER_CONCEPTS.md:97"
+    ]
+   },
+   "notes_for_fix": "1. Relabel, in COMPARISON_REPORT.md (\u00a710 and lines 141,189,193,216,223,254,256), PITFALL_AUDIT.md (46,70,82,85-86,91,171), THREAT_MODEL.md (124-125,130), DATASHEET.md:85 and defender_product/README.md (19,22,25,114): \"functionality-preserving adversarial variants/evasion\" \u2192 \"synthetic NFS feature-space perturbations (attribute-dict edits; no PE produced or executed)\"; \"realizable\" \u2192 \"intended to correspond to realizable edits (unverified)\"; \"the Lucas fix / train on the attack\" \u2192 \"random (unguided) augmentation with these perturbations; Lucas et al. show unguided augmentation is weaker than attack-based training\". PAPER_CONCEPTS.md:97 already has the right wording and can be copied. Also fix the train_nfs_adversarial.py:8-9 and adv_transforms.py:2 docstrings.\n2. eval_robustness.py: add a post-Builder validation step (re-parse output with LIEF; assert entry point, import table, section content hashes of pre-existing sections, overlay bytes and data-directory table unchanged except the intended fields; reject if not) and count rejections instead of silently returning None; pass an explicit config_t with resources/relocations/tls/load_configuration/debug=False so header_copy only touches the header (currently it rewrites .rsrc in ~57% of files and can grow a file by 65 KB / add a section); rename cert_blob to \"cert-bytes overlay append\" or actually set the CERTIFICATE_TABLE directory so it tests what \"signature theft\" means; state in V3_DETECTOR.md/V3x_STATUS tables that the suite is structural-only (no execution/sandbox) and in-sample for ember_ft (all 349 are in the fine-tune pool). \n3. If an executable-evasion claim is wanted, it needs a separate experiment with sandbox detonation (e.g. the MLSEC/GAMMA/secml-malware protocol) and should be reported separately from the feature-space numbers.\n4. For guided training, PAPER_CONCEPTS.md:97's proposed greedy donor hill-climb over rf_adv's score would turn train_nfs_adversarial.py into an actual model-guided procedure; until then report it as random augmentation."
+  },
+  {
+   "finding": "FINDING 2 \u2014 server.py does not enforce its advertised deadline: (a) classify() submits to a ThreadPoolExecutor and on future.result(timeout) TimeoutError the job stays running/queued (unbounded pending queue, queued jobs keep their input buffers); (b) the handler reads the body (_read_exactly) with no socket deadline, so a slow/partial upload gets no response; (c) a native call holding the GIL makes classify() overrun the 4 s budget and still return \"scored\". Also checked whether defender/ensemble_server.py inherits the behaviour.\n\nIMPORTANT CONTEXT: the tree changed while this repro ran. When the task started, defender/server.py was sha256 e4bd8bb8\u2026 (mtime Oct 15 12:19, 8,204 B; differs from the review's recorded 1135ebc8\u2026 but has the identical defective structure: ThreadPoolExecutor + future.result(timeout) -> \"overrun\", _read_exactly with no settimeout, Handler.timeout=None). At 17:52:57\u201317:53:46 on 2026-10-21 another process rewrote defender/server.py (now sha256 7b365cb9\u2026, 10,901 B), added defender/workers.py (sha256 a7425486\u2026, forked SIGKILL-able WorkerPool with bounded admission) and rewrote defender/ensemble_server.py (sha256 38ff3eba\u2026); the pre-fix files were preserved as defender/server.py.pre-review (sha256 e4bd8bb8\u2026, byte-identical to what this repro first read) and defender/ensemble_server.py.pre-review (310ff935\u2026). Both states were therefore tested.\n\nVERDICT BY STATE\n1) Pre-fix code (server.py.pre-review = tree state at task start): ALL THREE SUB-CLAIMS REPRODUCE EXACTLY. Native GIL sleep(6): classify() returned (0,\"scored\") after 6.004 s / 6.007 s against a 4.0 s budget, and a parent heartbeat thread got only 2 ticks in 6 s (GIL held). WORKERS=2 + blocked scorer, 12 requests at budget 0.01 s (review protocol): 12/12 answered (1,\"overrun\") in <=0.017 s, then _work_queue.qsize()=10 with 2 jobs running; all 12 one-MiB input buffers still referenced by the pool (refcounts [7,7,4x10] vs baseline 3; holder type `tuple` = _WorkItem.args), i.e. 10 MiB queued + 2 running; a 13th instantly-answerable request with budget 1 s came back (1,\"overrun\") after 1.0 s (starved behind the queue). Concurrent variant (12 threads, budget 0.5 s): identical, 10 queued. Real pre-fix HTTP server (models/rf_adv, thr 0.820932, 127.0.0.1:19250): Content-Length 4 with 2 bytes sent -> NO response within 6.001 s; after sending the remaining 2 bytes the reply {\"result\":1} arrived in 0.0008 s (server log: classified bytes=4 seconds=6.002). An abandoned partial upload (Content-Length 1,000,000, 10 bytes sent) got no response in 8 s. Other connections kept being served during the stall (/health 0.6 ms, full POST 0.8 ms): per-connection thread, not a global stall. ensemble_server.py.pre-review subclassed base.Defender without overriding classify and reused base.Handler/base.Server, so it inherited all of this (code inspection).\n\n2) Current code (server.py 7b365cb9\u2026 + workers.py a7425486\u2026), default DF_WORKER_MODE=process: THE FINDING DOES NOT REPRODUCE. Native GIL sleep(6): (1,\"overrun\") after 4.008 s / 4.023 s; the worker child was SIGKILLed (exitcode -9) and respawned (spawned 3, killed_overrun 1, live 2); parent heartbeat 327 ticks (GIL free). 12 timed-out requests (sequential, budget 0.01): 12/12 (1,\"overrun\"); afterwards 0 queued, idle 2 / live 2, killed_overrun 12, spawned 14, 0 input buffers referenced (refcounts all at baseline 3), 13th fast request (0,\"scored\") in <=1 ms. Concurrent 12 @0.5 s: 4 overrun + 8 saturated (3+9 on rerun), max 0.509 s, nothing queued. Partial-upload probe on the real server (127.0.0.1:19251, started via build()+serve_forever, see crash below): {\"result\":1} after 4.015 s (server log slow_upload seconds=4.0015), connection closed; abandoned 1,000,000-byte partial -> {\"result\":1} at ~4.03 s. Current ensemble_server.py no longer subclasses; it builds base.Defender(ensemble.predict, ensemble.info, ensemble._t) + base.serve(); the real ensemble server (Dockerfile.ensemble env mapped locally, 127.0.0.1:19252, ready in 2.54 s) answered the partial upload with {\"result\":1} at 4.002 s (slow_upload 4.0013) and the abandoned partial at ~4 s.\n\n3) Residual problems found on the CURRENT code: (i) REGRESSION: the documented entry point crashes at startup \u2014 `cd defender_product && DF_MODEL_DIR=models/rf_adv DF_MALWARE_THRESHOLD=0.820932 .venv/bin/python -m defender.server` exits 1 with `TypeError: log() got multiple values for keyword argument 'budget_seconds'` at server.py:245 (main() passes budget_seconds=\u2026 while defender.info() already contains \"budget_seconds\"); nothing listens. tests/test_server.py uses build() only, so the suite would not catch this; ensemble_server.main() does not pass it and starts fine. (ii) DF_WORKER_MODE=thread fallback: native GIL sleep still returned after 6.005 s / 6.021 s (now as (1,\"overrun\"), result at least fails toward detection); 12 blocked requests -> 2 overrun + 10 saturated, no queue, but the 2 un-killable blocked threads keep their slots and buffers (refcounts 5,5 via closure `cell`), so a 13th fast request got (1,\"saturated\") after 1.004 s: the thread-mode server wedges while native work blocks. (iii) In process mode the overrun path does process.kill()+join(1.0) synchronously before returning: one request with a 0.01 s budget took 0.317 s (rerun), i.e. the answer can lag the deadline by the kill/join time. (iv) After SIGTERM to the ensemble parent, its 2 forked workers were orphaned (ppid 1) for ~15 s until their socketpair closed, then exited on their own.",
+   "reproduces": "PARTIALLY",
+   "evidence": "Scratch dir: /private/tmp/claude-501/-Users-seshadithyasaravanan-Desktop-CSCE-704-Model/162af773-f9f6-4002-89df-456c9332050c/scratchpad/repro/finding2/ (all files below are in it). PY=\"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product/.venv/bin/python\"; DP=\"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/defender_product\".\n\nIn-process (adapted from the review's verify_service.py, which hard-codes ROOT relative to itself and writes into the repo, so it was not run in place; the same NativeSlow/ctypes.PyDLL(None).sleep(6) and 12-blocked-requests protocol was kept and extended with refcount/holder checks and a 13th request):\n  \"$PY\" -I repro_inprocess2.py \"$DP/defender/server.py.pre-review\" inprocess_prereview.json   -> inprocess_prereview.json / .log\n  \"$PY\" -I repro_inprocess2.py \"$DP/defender/server.py\" inprocess_current_process.json process -> inprocess_current_process.json\n  \"$PY\" -I repro_inprocess2.py \"$DP/defender/server.py\" inprocess_current_thread.json thread   -> inprocess_current_thread.json\n  (each JSON records the sha256 of the file it loaded; refcount baseline is 3 = list + loop variable + getrefcount argument.)\n\nHTTP, real servers as subprocesses on localhost (server launched under -I with an explicit sys.path insert because `defender` is not installed in the venv, so `-I -m defender.server` cannot import it; env DF_MODEL_DIR=models/rf_adv DF_MALWARE_THRESHOLD=0.820932 DF_HOST=127.0.0.1; probe = headers with Content-Length 4 + \"MZ\", recv with 6 s timeout, then \"xx\"):\n  \"$PY\" -I repro_http.py prereview    19250 http_prereview.json server_prereview.log  (pre-fix file via SourceFileLoader; m.main())\n  \"$PY\" -I repro_http.py server_nomain 19251 http_current.json   server_current.log    (current: build()+serve_forever, because main() crashes)\n  \"$PY\" -I repro_http.py ensemble     19252 http_ensemble.json  server_ensemble.log   (Dockerfile.ensemble env: DF_EMBER_MODEL=models/ember_gbdt/ember_gbdt.txt DF_RF_DIR=models/rf_adv DF_EMBER_FT=models/ember_ft_v33/ember_ft.txt DF_FUSION=models/fusion_v33.json)\nExact documented command (crash): cd \"$DP\" && DF_MODEL_DIR=models/rf_adv DF_MALWARE_THRESHOLD=0.820932 DF_HOST=127.0.0.1 DF_PORT=19251 .venv/bin/python -m defender.server -> exit 1, traceback in server_current_exact_cmd.log (server.py:245 TypeError ... 'budget_seconds'); first attempt via -I/-c is in server_current.log's earlier content (same traceback).\n\nKey recorded numbers \u2014 pre-fix: native 6.004/6.007 s (0,\"scored\"), heartbeat 2; queue after 12 timeouts = 10, refcounts [7,7,4,4,4,4,4,4,4,4,4,4], holders [\"tuple\"], 13th (1,\"overrun\") 1.0 s; HTTP partial upload: got_response_within_6s=false elapsed 6.001, response after completion in 0.0008 s, server log seconds=6.002; abandoned partial 8 s: null. Current/process: native 4.008/4.023 s (1,\"overrun\"), worker exitcode -9, heartbeat 327; after 12 timeouts idle 2 live 2 killed_overrun 12 spawned 14, refcounts all 3, holders [], 13th (0,\"scored\") 0.001 s; HTTP partial upload answered {\"result\":1} at 4.015 s (slow_upload 4.0015), abandoned partial answered ~4.03 s; ensemble 4.002 s (slow_upload 4.0013). Current/thread: native 6.005/6.021 s (1,\"overrun\"); 2 overrun + 10 saturated, free_slots 0, refcounts [5,5,3...], holders [\"cell\"], 13th (1,\"saturated\") 1.004 s.\n\nReview's own evidence for comparison: reports/verification-2026-09-21/service-reproductions.json (elapsed 6.0019 s, (0,\"scored\"), still_queued 10) and http-verification.json slow_upload_probe (no response in 5.2015 s, response after body completed) \u2014 both matched by the pre-fix run.\n\nTree hashes: reviewed server.py 1135ebc8\u2026 (reviewed-state-hashes.json); at task start e4bd8bb8\u2026 (== server.py.pre-review); current 7b365cb9\u2026; workers.py a7425486\u2026; ensemble_server.py 38ff3eba\u2026 (pre-review 310ff935\u2026). Cleanup: every server was terminated (rc=-15), ports 19250\u201319252 verified free, no leftover processes; no repository file modified.",
+   "numbers": {
+    "tree": {
+     "server_py_sha256_reviewed_2026_09_21": "1135ebc81660e6d078526e94ec20e6630cf21e7e7e1c5930a52863695d9634d9",
+     "server_py_sha256_at_task_start_and_pre_review_backup": "e4bd8bb829a808396e98a10fa1eaded96ea7218d6bdb07b1f194b26f0f9a155a",
+     "server_py_sha256_current": "7b365cb920e6bb008fc528eec82b3ec01c5c89054bfb07f64be5e895f1951c77",
+     "workers_py_sha256_current": "a7425486524662cfa09a0f801910333b784bdf6d9e2b9a317ae71f2d9e10e58e",
+     "ensemble_server_py_sha256_current": "38ff3eba700cfd90b4ccf55dcedc76cc8df4b62d1d9f0793a307c622641d4a7a",
+     "ensemble_server_py_sha256_pre_review": "310ff935fbcb5b874cf7e75c75e381afe46c2bfa9f9b38b3fb6d9a5d53024d5f",
+     "rewrite_mtime": "2026-10-21 17:52:57-17:53:46"
+    },
+    "old_code": {
+     "native_gil_elapsed_s": [
+      6.004,
+      6.007
+     ],
+     "native_gil_result": [
+      0,
+      "scored"
+     ],
+     "budget_s": 4,
+     "parent_heartbeat_ticks_in_6s": 2,
+     "timed_out_requests": 12,
+     "workers": 2,
+     "still_queued_after": 10,
+     "running_after": 2,
+     "input_buffers_retained": 12,
+     "refcounts_baseline3": [
+      7,
+      7,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4
+     ],
+     "queued_MiB": 10,
+     "thirteenth_fast_request": {
+      "result": [
+       1,
+       "overrun"
+      ],
+      "elapsed_s": 1
+     },
+     "http_partial_upload_response_within_6s": false,
+     "http_partial_upload_wait_s": 6.001,
+     "http_response_after_completion_s": 0.0008,
+     "server_log_seconds": 6.002,
+     "abandoned_partial_8s_response": null,
+     "review_recorded": {
+      "elapsed": 6.0019,
+      "still_queued": 10,
+      "slow_upload_wait": 5.2015
+     }
+    },
+    "current_code_process_mode": {
+     "native_gil_elapsed_s": [
+      4.008,
+      4.023
+     ],
+     "native_gil_result": [
+      1,
+      "overrun"
+     ],
+     "worker_exitcode": -9,
+     "parent_heartbeat_ticks": 327,
+     "sequential_12_budget_0.01": {
+      "overrun": 12,
+      "queued_after": 0,
+      "idle": 2,
+      "live": 2,
+      "killed_overrun": 12,
+      "spawned": 14,
+      "buffers_retained": 0,
+      "max_elapsed_s": [
+       0.016,
+       0.317
+      ]
+     },
+     "concurrent_12_budget_0.5": {
+      "overrun": [
+       4,
+       3
+      ],
+      "saturated": [
+       8,
+       9
+      ],
+      "max_elapsed_s": 0.509,
+      "queued_after": 0
+     },
+     "thirteenth_fast_request": {
+      "result": [
+       0,
+       "scored"
+      ],
+      "elapsed_s": 0.001
+     },
+     "http_partial_upload_response_s": 4.015,
+     "server_log_slow_upload_s": 4.0015,
+     "abandoned_partial_response_s": 4.03,
+     "ensemble_http_partial_upload_response_s": 4.002,
+     "ensemble_ready_s": 2.54,
+     "main_entry_point_exit_code": 1
+    },
+    "current_code_thread_mode": {
+     "native_gil_elapsed_s": [
+      6.005,
+      6.021
+     ],
+     "native_gil_result": [
+      1,
+      "overrun"
+     ],
+     "sequential_12": {
+      "overrun": 2,
+      "saturated": 10,
+      "queued_after": 0,
+      "free_slots": 0,
+      "buffers_retained": 2
+     },
+     "thirteenth_fast_request": {
+      "result": [
+       1,
+       "saturated"
+      ],
+      "elapsed_s": 1.004
+     }
+    },
+    "ports_used": [
+     19250,
+     19251,
+     19252
+    ],
+    "servers_left_running": 0
+   },
+   "notes_for_fix": "The fix that landed mid-task (defender/workers.py + rewritten server.py) resolves all three sub-claims in its default process mode, but it needs follow-up before it can be called shipped:\n1. BLOCKER: defender/server.py:245 main() calls log(\"ready\", **defender.info(), ..., budget_seconds=REQUEST_BUDGET_SECONDS) while Defender.info() already returns \"budget_seconds\" -> TypeError at startup; `python -m defender.server` (the single-model entry point; check the single-model Dockerfile CMD, which would crash-loop if it uses it) cannot start. Drop the duplicate kwarg. Add a test that drives main()/the module entry point (tests/test_server.py only uses build(), which is why the suite would not catch this).\n2. workers.py WorkerPool.classify overrun path: _retire() does process.kill() + process.join(1.0) synchronously before returning (1,\"overrun\"); observed one 0.01 s-budget request taking 0.317 s. Move the kill/join into the async respawn thread (or close the socket, return immediately, reap later) so the \"overrun\" answer is not delayed past the deadline; measure p99 overrun latency under concurrent load against the 5 s harness limit.\n3. Thread mode (DF_WORKER_MODE=thread) still cannot enforce the deadline against native calls (6.0 s observed) and a blocked native call permanently consumes a slot, so the server degrades to all-\"saturated\"; keep it documented as non-compliant, log loudly when it is selected, and make sure the Docker images never fall back to it.\n4. On SIGTERM the parent's forked workers are orphaned until their socketpair closes (~15 s observed); add a SIGTERM handler that calls defender.close() (or terminate workers in a finally) for clean container shutdown.\n5. Re-run the review's verify_service.py protocol (12 blocked requests + native sleep) and the partial-upload HTTP probe as regression tests on the new API, and update the review's \"required correction\" status for finding 2 with the current hashes (server.py 7b365cb9\u2026, workers.py a7425486\u2026). Also record that the pre-fix code (server.py.pre-review, e4bd8bb8\u2026) reproduces the review's numbers exactly, so the evidence in service-reproductions.json / http-verification.json remains valid for the state it described."
+  }
+ ]
+}

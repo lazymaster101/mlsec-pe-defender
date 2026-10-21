@@ -2,12 +2,22 @@
 
 Implements the competition contract: ``POST /`` with an ``application/octet-stream``
 body returns ``{"result": 0|1}``. Every failure mode -- unparseable input, an
-oversized body, or work that overruns the latency budget -- answers 1 within the
-budget, because a response that never arrives is scored as a successful evasion.
+oversized body, a stalled upload, a saturated server, or work that overruns the
+budget -- answers 1 inside the budget, because a response that never arrives is
+scored as a successful evasion.
+
+Budget accounting (review 2026-09-21, finding 2): ``DF_REQUEST_BUDGET_SECONDS``
+(default 4.0 of the harness's 5.0) is measured from the moment the request headers are
+in, and covers reading the body, waiting for an inference worker, and inference. The
+body is read under a socket deadline; inference runs in a forked worker process that is
+SIGKILLed at the deadline (defender/workers.py), so a native call that holds the
+interpreter lock cannot push the answer past the budget; and admission is bounded by the
+number of workers, so nothing queues beyond its own deadline and no input buffer outlives
+its request. Time spent before the headers arrive (connection accept, TLS, client-side
+upload stalls before the request line) is outside the server's control.
 """
 from __future__ import annotations
 
-import concurrent.futures
 import http.server
 import json
 import os
@@ -15,11 +25,10 @@ import socket
 import sys
 import threading
 import time
-from typing import Any
-
-import numpy as np
+from typing import Any, Callable
 
 from defender.model import Model
+from defender.workers import WorkerPool
 
 MAX_BODY_BYTES = int(os.environ.get("DF_MAX_BODY_BYTES", 64 * 1024 * 1024))
 # Beyond this we stop reading and drop the connection; a body that large is not a
@@ -27,6 +36,7 @@ MAX_BODY_BYTES = int(os.environ.get("DF_MAX_BODY_BYTES", 64 * 1024 * 1024))
 MAX_DRAIN_BYTES = int(os.environ.get("DF_MAX_DRAIN_BYTES", 256 * 1024 * 1024))
 REQUEST_BUDGET_SECONDS = float(os.environ.get("DF_REQUEST_BUDGET_SECONDS", 4.0))
 WORKERS = int(os.environ.get("DF_WORKERS", 2))
+WORKER_MODE = os.environ.get("DF_WORKER_MODE", "process")   # 'process' (killable) or 'thread'
 OCTET_STREAM = "application/octet-stream"
 
 
@@ -37,32 +47,56 @@ def log(message: str, **fields: Any) -> None:
 
 
 class Defender:
-    def __init__(self, model: Model, threshold: float) -> None:
-        self.model = model
+    """Owns the worker pool and the counters. ``score_fn(bytes) -> 0|1`` runs in workers."""
+
+    REASONS = ("benign", "malicious", "unparseable", "overrun", "saturated", "slow_upload",
+               "worker_failed", "oversize")
+
+    def __init__(self, score_fn: Callable[[bytes], int], info: Callable[[], dict],
+                 threshold: float, workers: int = WORKERS, mode: str = WORKER_MODE,
+                 budget_seconds: float = REQUEST_BUDGET_SECONDS, model: Any = None) -> None:
+        self.model = model                      # kept for /model and for in-process tools
         self.threshold = threshold
-        self._pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=WORKERS, thread_name_prefix="infer")
-        self._counts = {"benign": 0, "malicious": 0, "unparseable": 0, "overrun": 0}
+        self.budget_seconds = float(budget_seconds)
+        self._info = info
+        self._pool = WorkerPool(score_fn, n_workers=workers, mode=mode)
+        if self._pool.mode != "process":
+            log("warning", detail="DF_WORKER_MODE=thread cannot interrupt a native call: the request "
+                "budget is NOT enforceable against hostile input; the shipped images use process mode")
+        self._counts = {k: 0 for k in self.REASONS}
         self._lock = threading.Lock()
 
-    def _score(self, bytez: bytes) -> int:
-        probability = self.model.predict(bytez)["malware_probability"]
-        # NeedForSpeedModel.predict_threshold: int(P(benign) < benign_threshold).
-        return int(probability > self.threshold)
+    @classmethod
+    def for_model(cls, model: Model, threshold: float, **kw: Any) -> "Defender":
+        def score(bytez: bytes) -> int:
+            # NeedForSpeedModel.predict_threshold: int(P(benign) < benign_threshold).
+            return int(model.predict(bytez)["malware_probability"] > threshold)
+        return cls(score, model.info, threshold, model=model, **kw)
 
-    def classify(self, bytez: bytes) -> tuple[int, str]:
-        future = self._pool.submit(self._score, bytez)
-        try:
-            return future.result(timeout=REQUEST_BUDGET_SECONDS), "scored"
-        except concurrent.futures.TimeoutError:
-            # The worker keeps running; the pool bounds how many can pile up.
-            return 1, "overrun"
-        except Exception as error:  # malformed PE, parser rejection, truncation
-            log("unparseable", error=f"{type(error).__name__}: {error}")
-            return 1, "unparseable"
+    def _finish(self, result: int, reason: str) -> tuple[int, str]:
+        if reason.startswith("unparseable"):
+            log("unparseable", error=reason.partition(":")[2] or "parser rejected input")
+            reason = "unparseable"
+        elif reason not in ("scored",):
+            log(reason, workers=self._pool.stats())
+        return result, reason
+
+    def classify(self, bytez: bytes, deadline: float | None = None) -> tuple[int, str]:
+        """In-memory body. -> (result, reason). ``deadline`` is a time.monotonic() instant;
+        default = now + budget."""
+        if deadline is None:
+            deadline = time.monotonic() + self.budget_seconds
+        return self._finish(*self._pool.classify(bytez, deadline))
+
+    def classify_stream(self, reader: Callable[[int], bytes], length: int,
+                        deadline: float | None = None) -> tuple[int, str]:
+        """Body relayed from ``reader`` (the client socket) straight into a worker."""
+        if deadline is None:
+            deadline = time.monotonic() + self.budget_seconds
+        return self._finish(*self._pool.classify_stream(reader, length, deadline))
 
     def record(self, result: int, reason: str) -> None:
-        key = reason if reason in ("unparseable", "overrun") else ("malicious" if result else "benign")
+        key = reason if reason in self._counts else ("malicious" if result else "benign")
         with self._lock:
             self._counts[key] += 1
 
@@ -70,12 +104,24 @@ class Defender:
         with self._lock:
             return dict(self._counts)
 
+    def info(self) -> dict:
+        return {**self._info(), "threshold": self.threshold, "counts": self.stats(),
+                "budget_seconds": self.budget_seconds, "workers": self._pool.stats()}
+
+    def close(self) -> None:
+        self._pool.close()
+
 
 class Handler(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server_version = "mlsec-defender"
     sys_version = ""
     defender: Defender
+
+    def setup(self) -> None:
+        super().setup()
+        # Request line / headers must arrive within the budget too (stalled clients).
+        self.connection.settimeout(self.defender.budget_seconds)
 
     def log_message(self, fmt: str, *args: Any) -> None:  # quieter default logging
         pass
@@ -93,9 +139,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/health":
             self._respond(200, {"status": "ok"})
         elif path == "/model":
-            self._respond(200, {**self.defender.model.info(),
-                                "threshold": self.defender.threshold,
-                                "counts": self.defender.stats()})
+            self._respond(200, self.defender.info())
         else:
             self._respond(404, {"error": "not found"})
 
@@ -103,6 +147,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if (self.path.split("?", 1)[0].rstrip("/") or "/") != "/":
             self._respond(404, {"error": "not found"})
             return
+        started = time.monotonic()
+        deadline = started + self.defender.budget_seconds
         content_type = (self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
         if content_type != OCTET_STREAM:
             # Be liberal in what we accept: the body is the sample whatever the client
@@ -120,7 +166,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if length > MAX_BODY_BYTES:
             # Answer 1 rather than erroring: an unanswered sample scores as an evasion.
             # The body is discarded as it arrives, so memory stays flat.
-            drained = self._drain(length)
+            drained = self._drain(length, deadline)
             self.defender.record(1, "oversize")
             log("oversize", bytes=length, drained=drained)
             if not drained:
@@ -128,36 +174,54 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._respond(200, {"result": 1})
             return
 
-        started = time.perf_counter()
-        bytez = self._read_exactly(length)
-        if bytez is None:
-            self.close_connection = True
-            self._respond(400, {"error": "truncated body"})
-            return
+        # The body is streamed from the client socket straight into the inference worker;
+        # this process never holds the whole sample (memory headroom under the 1 GiB cap).
+        def reader(n: int) -> bytes:
+            budget = deadline - time.monotonic()
+            if budget <= 0:
+                return b""
+            self.connection.settimeout(budget)
+            return self.rfile.read(n)
 
-        result, reason = self.defender.classify(bytez)
+        result, reason = self.defender.classify_stream(reader, length, deadline)
+        if reason in ("slow_upload", "saturated"):
+            # the socket may still hold (part of) the body; we will not wait for it
+            self.close_connection = True
         self.defender.record(result, reason)
-        elapsed = time.perf_counter() - started
-        log("classified", result=result, reason=reason, bytes=length,
-            seconds=round(elapsed, 4))
+        log("classified" if reason == "scored" else reason, result=result, reason=reason,
+            bytes=length, seconds=round(time.monotonic() - started, 4))
         self._respond(200, {"result": result})
 
-    def _drain(self, length: int) -> bool:
+    def _drain(self, length: int, deadline: float) -> bool:
         """Discard an oversized body in bounded chunks so the reply still gets through."""
         if length > MAX_DRAIN_BYTES:
             return False
         remaining = length
         while remaining > 0:
-            chunk = self.rfile.read(min(remaining, 1 << 20))
+            budget = deadline - time.monotonic()
+            if budget <= 0:
+                return False
+            self.connection.settimeout(budget)
+            try:
+                chunk = self.rfile.read(min(remaining, 1 << 20))
+            except (socket.timeout, OSError):
+                return False
             if not chunk:
                 return False
             remaining -= len(chunk)
         return True
 
-    def _read_exactly(self, length: int) -> bytes | None:
+    def _read_exactly(self, length: int, deadline: float) -> bytes | None:
         chunks, remaining = [], length
         while remaining > 0:
-            chunk = self.rfile.read(min(remaining, 1 << 20))
+            budget = deadline - time.monotonic()
+            if budget <= 0:
+                return None
+            self.connection.settimeout(budget)
+            try:
+                chunk = self.rfile.read(min(remaining, 1 << 20))
+            except (socket.timeout, OSError):
+                return None
             if not chunk:
                 return None
             chunks.append(chunk)
@@ -174,33 +238,33 @@ class Server(http.server.ThreadingHTTPServer):
     request_queue_size = 128
 
 
-def build(model_dir: str | None = None) -> tuple[Server, Defender]:
+def serve(defender: Defender) -> Server:
+    handler = type("BoundHandler", (Handler,), {"defender": defender})
+    host = os.environ.get("DF_HOST", "0.0.0.0")
+    port = int(os.environ.get("DF_PORT", 8080))
+    return Server((host, port), handler)
+
+
+def build(model_dir: str | None = None, **kw: Any) -> tuple[Server, Defender]:
     directory = model_dir or os.environ.get("DF_MODEL_DIR", "models/nfs")
     threshold = float(os.environ.get("DF_MALWARE_THRESHOLD", 0.25))
     mode = os.environ.get("DF_FEATURE_MODE", "training")
     model = Model(directory, mode)
-    defender = Defender(model, threshold)
-    handler = type("BoundHandler", (Handler,), {"defender": defender})
-    host = os.environ.get("DF_HOST", "0.0.0.0")
-    port = int(os.environ.get("DF_PORT", 8080))
-    return Server((host, port), handler), defender
+    defender = Defender.for_model(model, threshold, **kw)
+    return serve(defender), defender
 
 
 def main() -> None:
     server, defender = build()
-    info = defender.model.info()
-    # Touch the forest once so the first graded sample does not pay page-fault cost.
-    warm = time.perf_counter()
-    defender.model.probability(np.zeros(defender.model.n_features, dtype=np.float32))
-    log("ready", **info, threshold=defender.threshold,
-        warmup_seconds=round(time.perf_counter() - warm, 3),
-        address="%s:%d" % server.server_address[:2],
-        max_body_bytes=MAX_BODY_BYTES, budget_seconds=REQUEST_BUDGET_SECONDS)
+    # Workers warmed themselves at fork time (defender/workers.py); the parent never scores.
+    log("ready", **defender.info(), address="%s:%d" % server.server_address[:2],
+        max_body_bytes=MAX_BODY_BYTES)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         log("shutdown", counts=defender.stats())
     finally:
+        defender.close()
         server.server_close()
 
 

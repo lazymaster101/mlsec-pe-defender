@@ -1,0 +1,149 @@
+[v33w1] ready after 3s
+[v33w1] image: sha256:1f77ff1ad049  size: 764 MB
+[v33w1] /model: ensemble-v33 thr=4.0819 ['authenticode_trust(microsoft_pinned_pca)', 'authenticode_tamper', 'embedded_powershell_bypass', 'logodds_fusion(ember_gbdt, rf_adv, ember_gbdt+ember_ft_v33)']
+[v33w1] === course set over HTTP (scored once per candidate) ===
+[v33w1] TP=50 FN=0 FP=0 TN=50 | TPR=100.0% FPR=0.0% | PASS | errors=0 (late>5s: 0) | latency p95=42ms max=60ms
+[v33w1] mem after course set: 209 MiB peak: 214 MiB
+[v33w1] === largest goodware2 files (1 CPU) ===
+     66.8 MB   3.33 s  result=0  choco:git.install
+     65.7 MB   2.19 s  result=0  github:agalwood/Motrix
+     64.5 MB   2.47 s  result=0  github:memstechtips/Winhance
+     64.4 MB   2.18 s  result=0  choco:kubernetes-helm
+     62.6 MB   2.05 s  result=0  github:devhubapp/devhub
+     62.2 MB   2.08 s  result=0  github:agalwood/Motrix
+[v33w1] mem peak after large files: 864 MiB  oom_kill: oom_kill 0
+[v33w1] memory.stat now (anon = process memory, file = reclaimable page cache):  [v33w1] memory.stat now (anon = process memory, file = reclaimable page cache): anon 339820544
+file 0
+kernel 5910528
+kernel_stack 65536
+pagetables 2080768
+sec_pagetables 0
+percpu 27360
+sock 0
+vmalloc 16384
+shmem 0
+zswap 0
+zswapped 0
+file_mapped 0
+file_dirty 0
+file_writeback 0
+swapcached 0
+anon_thp 111149056
+file_thp 0
+shmem_thp 0
+inactive_anon 0
+active_anon 342945792
+inactive_file 0
+active_file 8192
+unevictable 0
+slab_reclaimable 2437992
+slab_unreclaimable 1255008
+slab 3693000
+workingset_refault_anon 0
+workingset_refault_file 0
+workingset_activate_anon 0
+workingset_activate_file 0
+workingset_restore_anon 0
+workingset_restore_file 0
+workingset_nodereclaim 0
+pgdemote_kswapd 0
+pgdemote_direct 0
+pgdemote_khugepaged 0
+pgdemote_proactive 0
+pgscan 0
+pgsteal 0
+pswpin 0
+pswpout 0
+pgscan_kswapd 0
+pgscan_direct 0
+pgscan_khugepaged 0
+pgscan_proactive 0
+pgsteal_kswapd 0
+pgsteal_direct 0
+pgsteal_khugepaged 0
+pgsteal_proactive 0
+pgfault 148629
+pgmajfault 0
+pgrefill 0
+pgactivate 0
+pgdeactivate 0
+pglazyfree 0
+pglazyfreed 0
+swpin_zero 0
+swpout_zero 0
+zswpin 0
+zswpout 0
+zswpwb 0
+thp_fault_alloc 2492
+thp_collapse_alloc 0
+thp_swpout 0
+thp_swpout_fallback 0 [v33w1] memory.stat now (anon = process memory, file = reclaimable page cache): anon 337723392
+file 0
+kernel 5910528
+kernel_stack 65536
+pagetables 2076672
+sec_pagetables 0
+percpu 27360
+sock 0
+vmalloc 16384
+shmem 0
+zswap 0
+zswapped 0
+file_mapped 0
+file_dirty 0
+file_writeback 0
+swapcached 0
+anon_thp 109051904
+file_thp 0
+shmem_thp 0
+inactive_anon 0
+active_anon 340754432
+inactive_file 0
+active_file 8192
+unevictable 0
+slab_reclaimable 2442080
+slab_unreclaimable 1251208
+slab 3693288
+workingset_refault_anon 0
+workingset_refault_file 0
+workingset_activate_anon 0
+workingset_activate_file 0
+workingset_restore_anon 0
+workingset_restore_file 0
+workingset_nodereclaim 0
+pgdemote_kswapd 0
+pgdemote_direct 0
+pgdemote_khugepaged 0
+pgdemote_proactive 0
+pgscan 0
+pgsteal 0
+pswpin 0
+pswpout 0
+pgscan_kswapd 0
+pgscan_direct 0
+pgscan_khugepaged 0
+pgscan_proactive 0
+pgsteal_kswapd 0
+pgsteal_direct 0
+pgsteal_khugepaged 0
+pgsteal_proactive 0
+pgfault 149838
+pgmajfault 0
+pgrefill 0
+pgactivate 0
+pgdeactivate 0
+pglazyfree 0
+pglazyfreed 0
+swpin_zero 0
+swpout_zero 0
+zswpin 0
+zswpout 0
+zswpwb 0
+thp_fault_alloc 2494
+thp_collapse_alloc 0
+thp_swpout 0
+thp_swpout_fallback 0
+[v33w1] anon memory while scoring the largest file: max 450 MiB over 14 samples
+[v33w1] malformed input -> {"result": 1}
+[v33w1] error lines in container log: 0
+[v33w1] gate exit code: 0 (wall 23s)

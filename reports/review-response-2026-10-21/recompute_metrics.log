@@ -1,0 +1,85 @@
+### ember_temporal (25k/class, seed 20260919): supplied, retrained_rf, rf_tuned (+ rf_augmented, rf_adv for completeness)
+    "model_dir": "dataset/models/nfs_rf_adv",
+    "n_nodes": 2036122,
+    "tpr_at_fpr_0.01_ci95": [
+      0.7601,
+      0.7706
+    ]
+  }
+}
+### ember_aug (same rows): rf_augmented
+    ]
+  }
+}
+### recent_test (60 benign / 433 malware): rf_tuned, rf_augmented (+ rf_adv)
+      0.4841,
+      0.5777
+    ]
+  }
+}
+### recent_drift (200 benign / 1455 malware incl. 1 unparseable): supplied, rf_tuned
+      0.3677
+    ]
+  }
+}
+### before/after
+
+ember_temporal
+  model         metric                    before     after    delta
+  supplied      roc_auc                  0.97625   0.97627 +0.00003
+  supplied      pr_auc                   0.97719   0.97674 -0.00046
+  supplied      tpr_at_fpr_0.001         0.00000   0.00000 +0.00000
+  supplied      tpr_at_fpr_0.01          0.71156   0.71156 +0.00000
+  supplied      threshold_at_fpr_0.01    0.88000   0.88000 +0.00000
+  supplied      actual_fpr_0.01          0.00988   0.00988 +0.00000
+  retrained_rf  roc_auc                  0.93621   0.93621 +0.00000
+  retrained_rf  pr_auc                   0.94473   0.94483 +0.00009
+  retrained_rf  tpr_at_fpr_0.001         0.38268   0.38268 +0.00000
+  retrained_rf  tpr_at_fpr_0.01          0.58728   0.58728 +0.00000
+  retrained_rf  threshold_at_fpr_0.01    0.74325   0.74325 +0.00000
+  retrained_rf  actual_fpr_0.01          0.00996   0.00996 +0.00000
+  rf_tuned      roc_auc                  0.97660   0.97660 -0.00001
+  rf_tuned      pr_auc                   0.97989   0.97992 +0.00003
+  rf_tuned      tpr_at_fpr_0.001         0.59652   0.59656 +0.00004
+  rf_tuned      tpr_at_fpr_0.01          0.77868   0.77868 +0.00000
+  rf_tuned      threshold_at_fpr_0.01    0.76033   0.76017 -0.00017
+  rf_tuned      actual_fpr_0.01          0.00996   0.01000 +0.00004
+
+ember_aug
+  model         metric                    before     after    delta
+  rf_augmented  roc_auc                  0.97651   0.97651 +0.00001
+  rf_augmented  pr_auc                   0.97947   0.97961 +0.00014
+  rf_augmented  tpr_at_fpr_0.001         0.60008   0.60008 +0.00000
+  rf_augmented  tpr_at_fpr_0.01          0.79920   0.79924 +0.00004
+  rf_augmented  threshold_at_fpr_0.01    0.74943   0.74940 -0.00003
+  rf_augmented  actual_fpr_0.01          0.01000   0.01000 +0.00000
+
+recent_test
+  model         metric                    before     after    delta
+  rf_tuned      roc_auc                  0.81963   0.81967 +0.00004
+  rf_tuned      pr_auc                   0.96858   0.97094 +0.00237
+  rf_tuned      tpr_at_fpr_0.001         0.38106   0.38337 +0.00231
+  rf_tuned      tpr_at_fpr_0.01          0.38106   0.38337 +0.00231
+  rf_tuned      threshold_at_fpr_0.01    0.54858   0.54727 -0.00131
+  rf_tuned      actual_fpr_0.01          0.00000   0.00000 +0.00000
+  rf_augmented  roc_auc                  0.93707   0.93705 -0.00002
+  rf_augmented  pr_auc                   0.98659   0.98893 +0.00233
+  rf_augmented  tpr_at_fpr_0.001         0.28176   0.28406 +0.00231
+  rf_augmented  tpr_at_fpr_0.01          0.28176   0.28406 +0.00231
+  rf_augmented  threshold_at_fpr_0.01    0.90753   0.90683 -0.00070
+  rf_augmented  actual_fpr_0.01          0.00000   0.00000 +0.00000
+
+recent_drift
+  model         metric                    before     after    delta
+  supplied      roc_auc                  0.79929   0.79905 -0.00024
+  supplied      pr_auc                   0.96433   0.96441 +0.00009
+  supplied      tpr_at_fpr_0.001         0.08454   0.08454 +0.00000
+  supplied      tpr_at_fpr_0.01          0.15120   0.15120 +0.00000
+  supplied      threshold_at_fpr_0.01    0.69000   0.69000 +0.00000
+  supplied      actual_fpr_0.01          0.01000   0.01000 +0.00000
+  rf_tuned      roc_auc                  0.78116   0.78118 +0.00001
+  rf_tuned      pr_auc                   0.96234   0.96307 +0.00073
+  rf_tuned      tpr_at_fpr_0.001         0.15464   0.15601 +0.00137
+  rf_tuned      tpr_at_fpr_0.01          0.34227   0.34296 +0.00069
+  rf_tuned      threshold_at_fpr_0.01    0.57061   0.56978 -0.00082
+  rf_tuned      actual_fpr_0.01          0.01000   0.01000 +0.00000

@@ -65,9 +65,13 @@ The NFS feature space is 250,036 columns, of which only 22 are dense numeric hea
 fields; the rest are sparse hashed text. scikit-learn's default
 `max_features="sqrt"` (≈ 500 columns per split) sees a dense column in only **4.3 %**
 of split attempts, so trees split mostly on near-empty hashed columns and underfit.
-Raising `max_features` to 0.05 (12,500 columns; a dense column visible ~99.99 % of
-splits) is the entire difference between 58.7 % and 77.9 %. This is a
-representation/hyperparameter interaction, documented so it is not repeated.
+Raising `max_features` to 0.05 (12,500 columns; a dense column visible in ~68 % of
+split attempts — 1 − (1 − 12,500/250,036)^22 ≈ 67.6 %, exact hypergeometric 67.64 %; an
+earlier version of this sentence said 99.99 %, which was an arithmetic error) is the
+entire difference between 58.7 % and 77.9 %. The single-draw probability is an
+approximation of scikit-learn's actual split search, which also tries further columns
+when the drawn ones yield no valid split. This is a representation/hyperparameter
+interaction, documented so it is not repeated.
 
 ## 5. Recent drift — 1,455 malware (2020–2026, 38 families) / 200 goodware
 
@@ -94,9 +98,13 @@ gradient-boosted model *inside* the NFS space was tried and rejected: LightGBM
 builds per-feature histograms, so 250k features made a single training run exceed
 40 minutes without completing 100 rounds, and reducing the hash width to make it
 tractable dropped TPR@1%FPR to 0.42–0.47 (the hashed import signal does not survive
-the collisions). The gap between EMBER's number and ours (§3) is the price of the
-1 GB / 5 s deployment budget the NFS feature set was chosen for; closing it means
-adding byte/string features to the runtime, which is out of scope here.
+the collisions). The gap between EMBER's number and ours (§3) was attributed here to the
+1 GB / 5 s deployment budget the NFS feature set was chosen for. **Erratum (2026-10-21):**
+that attribution was wrong. The EMBER-2381 LightGBM member was later served inside the
+same budget (~0.5 ms per feature vector; live p95 56 ms, a 33 MB file in 1.43 s on one
+CPU — [RICHER_FEATURES_ENSEMBLE.md](RICHER_FEATURES_ENSEMBLE.md) §6, [V3_DETECTOR.md](V3_DETECTOR.md)),
+so the budget never excluded richer features; this section only shows that the NFS
+hashed feature space, not the learner, is the ceiling.
 
 ## 7. Does adding the collected recent malware help?
 
@@ -128,6 +136,12 @@ recent set (1,455 malware 2020–2026 / 200 goodware):
 | rf_tuned (EMBER only) | 12.0 % | 0.0 % |
 | **rf_augmented (+recent)** | **75.3 %** | 2.0 % |
 
+The goodware column pools all 200 recent goodware. For `supplied` and `rf_tuned`, which
+never saw them, that is a measurement; for `rf_augmented` (and `rf_adv`), 140 of the 200
+are *training* rows and only the 60 held-out rows measure anything (`rf_adv`: 1/60 =
+1.7 %, Wilson 95 % 0.3–8.9 %; 0/140 on its own training rows). n = 60 cannot certify a
+1 % population FPR either way (review 2026-09-21, finding 6).
+
 The supplied model, at a sane 1 %-FPR threshold, catches **9 % of current malware** —
 it is effectively blind to the present threat landscape. Retraining with the
 collected samples raises that to **75 %**, holding 58–83 % across every year from
@@ -135,11 +149,21 @@ collected samples raises that to **75 %**, holding 58–83 % across every year f
 
 ## 8. Deployment recommendation
 
-**Deploy `rf_adv`** — `rf_augmented`'s training data *plus* 90,612 functionality-
-preserving adversarial malware variants (RandomForest, `max_features=0.05`), at
-**threshold 0.8209** (exactly 1 % FPR on 30k EMBER benign). This is the
-adversarially-hardened model; the clean `rf_augmented` remains in the repo for the
-clean-only comparison. The full robustness analysis is §10.
+**Deploy `rf_adv`** — `rf_augmented`'s training data *plus* 90,612 synthetic
+feature-space perturbations of training malware rows (attribute-dict edits; no PE is
+produced; RandomForest, `max_features=0.05`), at **threshold 0.8209**. That threshold
+was chosen to give exactly 1 % FPR (300/30,000) on a 30k/30k *subsample of the EMBER
+test file* (`operating_point.json`), so 1 % is a calibration fit, not a bound: on all
+100,000 test benign the same threshold gives **1.051 %** (1,051; Wilson 95 % 0.99–1.12 %),
+and **1.073 %** on the 70,000 benign outside the calibration subsample (review
+2026-09-21, finding 1). The clean `rf_augmented` remains in the repo
+(`dataset/models/nfs_rf_augmented`) for the clean-only comparison; it is **not** in the
+image, which copies only `rf_adv`. The full robustness analysis is §10 (feature-space).
+
+*2026-10-21:* the course submission is no longer this single-model image but the v3.3
+ensemble ([V33_STATUS.md](V33_STATUS.md)), whose decision thresholds are fit on separate
+folds and reported by grouped CV and a sealed holdout; `rf_adv` enters it only as a
+continuous member and the 0.8209 threshold is not used there.
 
 At that operating point:
 
@@ -149,10 +173,10 @@ evaluation (79.5 %), not §3's separate 25k/25k number (79.9 %).
 
 | | value |
 |---|---|
-| EMBER temporal TPR @ 1 % FPR | 76.7 % (`rf_augmented` 79.5 %, supplied 71.2 %) |
-| held-out recent detection (clean) | 59 % (`rf_augmented` 66 %; supplied ~9 %) |
-| held-out recent under the combined realistic attack C | **55 %** (`rf_augmented` 7 %) |
-| goodware FPR (EMBER 30k / recent 200) | 1.0 % / 0.5 % |
+| EMBER temporal TPR @ 1 % FPR | 76.7 % on the 30k calibration subsample; **76.73 %** (76,728/100,000) on the full test at the fixed threshold (`rf_augmented` 79.5 %, supplied 71.2 %) |
+| held-out recent detection (clean) | 59 % = 254/433 (`rf_augmented` 66 %; supplied ~9 %); 53 % on the 349 rows with no feature-identical training twin |
+| held-out recent under the combined feature-space perturbation C | **55 %** (`rf_augmented` 7 %) |
+| goodware FPR | EMBER: 1.00 % on the 30k calibration subsample, **1.051 %** on all 100k test benign (Wilson 0.99–1.12 %); recent: **1/60 held-out** (1.7 %, Wilson 0.3–8.9 %), 0/140 trained-on |
 | model artifact | 59 MB, 2.04 M nodes |
 | container memory (`docker run -m 1g`) | 147 MiB (14 %) |
 | latency through live HTTP | mean 13 ms, p95 48 ms, max 66 ms (budget 5 000) |
@@ -166,19 +190,24 @@ and malformed input (random / truncated / empty) all fail to `1`. The image ship
 
 **The trade-off, stated plainly.** Adversarial training costs **2.8 points** of clean
 EMBER TPR (79.5 → 76.7) and ~7.6 of clean held-out recent detection (66 → 59), and in
-return roughly **8×** the detection of malware cheaply manipulated to evade with a
-*trained* attack family (combined attack C 7 → 55 %, §10). It does **not** buy
-robustness to an untrained mechanism (§10, attack F) or to full feature mimicry (D).
-For a detector whose threat model is a white-box evader (THREAT_MODEL §2–§3), hardening
-the cheap realizable attacks is the right trade; `rf_augmented` is one env var away for
-anyone who wants the clean-only headline.
+return roughly **8×** the detection of malware rows cheaply perturbed with a
+*trained* perturbation family (combined perturbation C 7 → 55 %, §10). It does **not**
+buy robustness to an untrained mechanism (§10, F) or to full feature mimicry (D), and
+none of it was verified with executable adversarial binaries (§10). For a detector whose
+threat model is a white-box evader (THREAT_MODEL §2–§3), raising the cost of the cheap
+perturbations is a reasonable trade. (`rf_augmented` is not in the image; switching
+means rebuilding with its arrays and `DF_MALWARE_THRESHOLD=0.756536`.)
 
-**Honest bottom line vs the challenge goals.** The 1 % FPR bound is met by
-construction. The 95 % TPR bound is **not** reached in the NFS feature space (best
-79.5 % clean at 1 % FPR); closing that gap needs richer byte/string features (§6),
-which exceed the runtime budget. What this work fixes are the real defects: a
-13 % → 1 % FPR recalibration, 9 % → 66 % recent-threat detection on held-out malware,
-and — new here — 7 % → 55 % detection under a realistic evasion attempt.
+**Honest bottom line vs the challenge goals.** The 1 % FPR target is met on the
+calibration subsample by construction of the threshold and is **not** a bound beyond it:
+1.051 % (Wilson 0.99–1.12 %) on the full EMBER test benign, 1.073 % outside the
+calibration subsample, 1/60 on held-out recent goodware. The 95 % TPR bound is **not**
+reached in the NFS feature space (best 79.5 % clean at 1 % FPR); closing that gap needs
+richer byte/string features (§6), which were later shown to fit the budget
+([RICHER_FEATURES_ENSEMBLE.md](RICHER_FEATURES_ENSEMBLE.md)). What this work fixes are
+the real defects: a 13 % → ~1 % FPR recalibration, 9 % → 59 % (`rf_adv`; 66 % for the
+clean `rf_augmented`) recent-threat detection on held-out malware, and 7 % → 55 %
+detection under a synthetic feature-space evasion (not an executable one).
 
 ## 9. Threats to validity
 
@@ -186,13 +215,16 @@ and — new here — 7 % → 55 % detection under a realistic evasion attempt.
   population FPR; the large-sample FPR is the EMBER 100k-benign number.
 * MalwareBazaar family coverage is an availability sample.
 * The `rf_augmented` test set is small (493); its interval is correspondingly wide.
-* **Adversarial robustness was measured (negative) and then hardened.** Against the
-  clean `rf_augmented`, functionality-preserving edits to the exact fields this feature
-  space reads (append benign "dead" imports; rewrite mutable header metadata) drop
-  recent-malware detection from 75 % to **9 %** — back to the un-retrained level. The
-  **deployed `rf_adv` applies the Lucas fix** (train on the attack) and lifts the
-  combined attack to **55 %** on held-out malware, at a 2.8-point clean-TPR cost — but
-  gains nothing against an untrained mechanism (F) or full mimicry (D). §10 /
+* **Feature-space robustness was measured (negative) and then mitigated in feature
+  space.** Against the clean `rf_augmented`, synthetic edits to the attribute dicts of
+  the exact fields this feature space reads (append benign "dead" imports; rewrite
+  mutable header metadata) drop recent-malware detection from 75 % to **9 %** — back to
+  the un-retrained level. The deployed `rf_adv` is trained with random augmentation on
+  the same perturbations (unguided; not Lucas et al.'s attack-based training) and lifts
+  the combined perturbation to **55 %** on held-out rows, at a 2.8-point clean-TPR cost —
+  but gains nothing against an untrained mechanism (F) or full mimicry (D). **No PE was
+  rewritten, validated or executed for any of these numbers**, so they say nothing about
+  executable adversarial binaries or an adaptive attacker (review 2026-09-21, finding 3). §10 /
   [PITFALL_AUDIT.md](PITFALL_AUDIT.md) Part 2;
   raw numbers in `dataset/results/adversarial_featurespace.json` (attack on the clean
   model) and `adversarial_training.json` (clean vs hardened).
@@ -213,16 +245,20 @@ A full per-paper pitfall audit of this work against all 26 project papers is in
 
 The audit (Part 2) showed the clean model is trivially evadable, which is the pitfall
 the threat model (§2–§3) and the Shallow-Security / XOR / GAMMA / Lucas papers care
-about most. The fix, per **Lucas (USENIX'23)** — *train on the attack*, not on plain
-augmentation — is now implemented and deployed.
+about most. The remedy implemented is **random augmentation with the same synthetic
+perturbations**. Lucas et al. (USENIX'23) distinguish exactly this kind of unguided
+augmentation from attack-based training on real binaries and show the former is weaker;
+an earlier version of this section called it "the Lucas fix", which overstated it.
 
 **Method.** `tools/train_nfs_adversarial.py` takes `rf_augmented`'s training corpus and
 adds adversarial malware variants generated by `tools/adv_transforms.py`: for a
-fraction (0.6) of the malicious rows, a functionality-preserving transform is applied
-in feature space and the result is kept labelled malicious (`--adv-mode all`). The
-trained attacks are the realizable append/rewrite/shrink family — append benign dead
-imports (A), rewrite mutable header metadata (B), both (C), packer-style import-table
-shrinkage (E). Reproduce the deployed model exactly with:
+fraction (0.6) of the malicious rows, a synthetic perturbation is applied to the
+attribute dict (no PE is produced) and the result is kept labelled malicious
+(`--adv-mode all`). Rows, donors and transforms are drawn at random — no model query,
+loss or gradient. The trained perturbations are intended to mirror realizable
+append/rewrite/shrink edits — append benign dead imports (A), rewrite mutable header
+metadata (B), both (C), packer-style import-table shrinkage (E) — but that correspondence
+is unverified. Reproduce the deployed model exactly with:
 
 ```
 python tools/train_nfs_adversarial.py --train work/ember_official/train.jsonl \
@@ -251,15 +287,26 @@ feature-space mimicry — the unrealizable upper bound).
 the true feature-space ceiling, not problem-space realizable (Pierazzi et al.).
 † F (section-injection) is **held out of training**; ‡ E (packing) **is** trained.
 
-**Reading — honestly.** The trained realizable attacks are far harder on held-out
-malware, with non-overlapping CIs: the cheap combined attack C goes **7 → 55 %** (8×),
+**Reading — honestly.** The trained perturbation families are far harder on held-out
+rows, with non-overlapping CIs: the cheap combined attack C goes **7 → 55 %** (8×),
 packing E **21 → 76 %**. But two caveats the numbers make plain: (1) **F**, a realizable
 mechanism the model never trained on, is essentially unchanged (59 → 58 %) — adversarial
-training did **not** transfer to an unseen mechanism (though F is itself a weak evasion
-against this import/header feature space); and (2) under the full-mimicry upper bound
+training did **not** transfer to an unseen mechanism (though F is itself a weak
+perturbation against this import/header feature space); and (2) under the full-mimicry upper bound
 **D**, both models are ~99 % evaded — a determined attacker who forges every feature
 still wins. So this is in-distribution robustness to the trained attack families on
 held-out samples, not general adversarial robustness. The clean cost is **2.8 pt** EMBER
 TPR (79.5 → 76.7) and **~7.6 pt** held-out recent detection (66 → 59). `--adv-frac` 0.6
 prioritizes robustness per the threat model; lowering it recovers clean recall. Raw
 results with CIs: `dataset/results/adversarial_training.json`.
+
+**What §10 does not establish (review 2026-09-21, finding 3).** Every number in this
+section is a feature-space result: the perturbations edit extracted attribute dicts, and
+no PE was rewritten, parsed back, loaded or executed, so nothing here shows that a working
+binary with those features exists, let alone that an adaptive attacker could not find one.
+The training was random augmentation, not model-guided attack generation. The byte-level
+suite added for v3 (`dataset/tools/eval_robustness.py`: overlay, string, section, header
+and certificate edits applied to real PE bytes and rebuilt with LIEF) is closer to the
+problem space but still does not execute the result. Claims about executable,
+functionality-preserving adversarial binaries await an experiment that produces and runs
+them.

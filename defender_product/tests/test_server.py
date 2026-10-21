@@ -44,6 +44,7 @@ class ServerTest(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.server.shutdown()
         cls.server.server_close()
+        cls.defender.close()
 
     def test_health_and_model_endpoints(self) -> None:
         with urllib.request.urlopen(f"{self.url}/health", timeout=10) as response:

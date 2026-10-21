@@ -1,52 +1,31 @@
 #!/usr/bin/env python3
-"""HTTP server for the diversified ensemble (ember_gbdt + rf_adv stack). Reuses the
-hardened Handler/Server from defender.server (timeouts, oversize draining,
-fail-toward-detection) but scores with the ensemble instead of a single model.
+"""HTTP server for the layered ensemble (defender.ensemble.Ensemble). Reuses the
+hardened Handler/Server from defender.server (read deadline, bounded admission,
+killable worker processes, oversize draining, fail-toward-detection) but scores with
+the ensemble instead of a single model.
 """
 from __future__ import annotations
-import concurrent.futures
-import threading
-import time
+import os
 
 from defender import server as base
 from defender.ensemble import Ensemble
 
 
-class EnsembleDefender(base.Defender):
-    def __init__(self, ensemble: Ensemble) -> None:
-        self.ensemble = ensemble
-        self.model = ensemble                    # Handler /model calls model.info()
-        self.threshold = ensemble._t             # stack logit threshold (reported by /model)
-        self._pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=base.WORKERS, thread_name_prefix="infer")
-        self._counts = {"benign": 0, "malicious": 0, "unparseable": 0, "overrun": 0}
-        self._lock = threading.Lock()
-
-    def _score(self, bytez: bytes) -> int:
-        return self.ensemble.predict(bytez)      # already 0/1, fail-toward-detection
-
-
 def main(ensemble_factory=Ensemble) -> None:
-    import os
     ensemble = ensemble_factory()
-    defender = EnsembleDefender(ensemble)
-    handler = type("BoundHandler", (base.Handler,), {"defender": defender})
-    host = os.environ.get("DF_HOST", "0.0.0.0")
-    port = int(os.environ.get("DF_PORT", 8080))
-    server = base.Server((host, port), handler)
-    # warm both pipelines so the first graded sample doesn't pay import/page-fault cost
-    warm = time.perf_counter()
-    try:
-        ensemble.predict(b"MZ" + b"\x00" * 128)
-    except Exception:
-        pass
-    base.log("ready", **ensemble.info(),
-             warmup_seconds=round(time.perf_counter() - warm, 3),
-             host=host, port=port)
+    # ensemble.predict is already 0/1 and fails toward detection; it runs in the forked
+    # workers only (the parent never predicts: OpenMP pools must not exist before fork).
+    defender = base.Defender(ensemble.predict, ensemble.info, ensemble._t, model=ensemble)
+    server = base.serve(defender)
+    base.log("ready", **defender.info(), host=server.server_address[0], port=server.server_address[1],
+             max_body_bytes=base.MAX_BODY_BYTES, worker_mode=base.WORKER_MODE)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        defender.close()
+        server.server_close()
 
 
 if __name__ == "__main__":

@@ -11,6 +11,11 @@ only yields 0/1 at the deployed threshold but exercises the real delivered path.
 Unreadable or unparseable samples are scored 1.0, matching the server's choice to
 fail toward detection; they are also reported separately, because that choice is
 what turns a corrupt benign file into a false positive.
+
+Over HTTP, an answer that arrives after ``--deadline`` seconds (default 5.0, the
+challenge's limit), or not at all, or malformed, is not a detection: malware counts as
+a miss, goodware as a false positive, and every such sample is listed under
+operational errors. Every submitted sample stays in the denominator.
 """
 from __future__ import annotations
 
@@ -54,21 +59,44 @@ def score_locally(paths: list[pathlib.Path], model_dir: str, mode: str):
         yield path, probability, failed, time.perf_counter() - started
 
 
-def score_over_http(paths: list[pathlib.Path], url: str):
+DEADLINE_SECONDS = 5.0   # the challenge's per-sample limit: a later answer is no answer
+
+
+def score_over_http(paths: list[pathlib.Path], url: str, deadline: float = DEADLINE_SECONDS):
+    """Drive a running server. A sample whose answer is late (> ``deadline``), missing,
+    malformed or transport-failed is NOT a detection: the challenge scores it as an
+    evasion (review 2026-09-21, finding 4). Such samples stay in the denominator and are
+    yielded with ``failed=True`` and a score that counts against the detector
+    (1.0 for benign = false positive, 0.0 for malware = miss); the caller reports them
+    separately as operational errors."""
     parts = urllib.parse.urlparse(url)
     for path in paths:
         body = path.read_bytes()
         started = time.perf_counter()
-        connection = http.client.HTTPConnection(parts.hostname, parts.port or 80, timeout=30)
+        connection = http.client.HTTPConnection(parts.hostname, parts.port or 80, timeout=deadline)
+        error = None
+        payload: dict = {}
         try:
             connection.request("POST", "/", body=body,
                                headers={"Content-Type": "application/octet-stream"})
             response = connection.getresponse()
-            payload = json.loads(response.read())
+            raw = response.read()
+            payload = json.loads(raw)
+        except Exception as exc:                     # timeout, reset, refused, bad JSON
+            error = f"{type(exc).__name__}: {exc}"[:120]
         finally:
             connection.close()
+        elapsed = time.perf_counter() - started
+        result = payload.get("result") if isinstance(payload, dict) else None
+        if error is None and result not in (0, 1):
+            error = f"malformed response: {str(payload)[:60]}"
+        if error is None and elapsed > deadline:
+            error = f"late: {elapsed:.3f}s > {deadline:.1f}s"
+        if error is not None:
+            yield path, None, error, elapsed       # score decided by the caller per label
+            continue
         # Only the decision is observable here, so map it onto the score axis.
-        yield path, float(payload["result"]), False, time.perf_counter() - started
+        yield path, float(result), False, elapsed
 
 
 def sweep(benign: list[float], malicious: list[float], target_fpr: float, min_tpr: float):
@@ -115,6 +143,8 @@ def main() -> None:
     parser.add_argument("--target-fpr", type=float, default=0.01)
     parser.add_argument("--min-tpr", type=float, default=0.95)
     parser.add_argument("--url", help="score through a running server instead of in-process")
+    parser.add_argument("--deadline", type=float, default=DEADLINE_SECONDS,
+                        help="per-sample HTTP deadline; later/missing answers count against the detector")
     parser.add_argument("--json", type=pathlib.Path, help="write the full report here")
     args = parser.parse_args()
 
@@ -124,22 +154,29 @@ def main() -> None:
     groups = {"benign": iter_samples(args.benign), "malicious": iter_samples(args.malicious)}
     scores: dict[str, list[float]] = {"benign": [], "malicious": []}
     failures = {"benign": 0, "malicious": 0}
+    operational: dict[str, list[dict]] = {"benign": [], "malicious": []}
     latencies: list[float] = []
     per_sample = []
 
     for label, paths in groups.items():
         if not paths:
             continue
-        runner = (score_over_http(paths, args.url) if args.url
+        runner = (score_over_http(paths, args.url, args.deadline) if args.url
                   else score_locally(paths, args.model, args.feature_mode))
         for path, probability, failed, elapsed in runner:
+            if probability is None:                  # HTTP: late / missing / malformed answer
+                # counts against the detector either way, and is reported separately
+                probability = 1.0 if label == "benign" else 0.0
+                operational[label].append({"path": str(path), "error": failed, "seconds": round(elapsed, 4)})
             scores[label].append(probability)
             failures[label] += bool(failed)
             latencies.append(elapsed)
             per_sample.append({"path": str(path), "label": label,
                                "score": probability, "failed": failed,
                                "seconds": round(elapsed, 4)})
-        print(f"{label}: scored {len(scores[label])} samples", file=sys.stderr)
+        print(f"{label}: scored {len(scores[label])} samples"
+              + (f" ({len(operational[label])} late/failed, counted against the detector)" if operational[label] else ""),
+              file=sys.stderr)
 
     benign, malicious = scores["benign"], scores["malicious"]
     fpr = sum(1 for v in benign if v > args.threshold) / len(benign) if benign else None
@@ -178,13 +215,20 @@ def main() -> None:
         ordered = sorted(latencies)
         print(f"\nlatency s: mean {statistics.fmean(ordered):.4f}  "
               f"p95 {ordered[int(len(ordered)*0.95)-1]:.4f}  max {ordered[-1]:.4f}  "
-              f"budget 5.0  over budget: {sum(1 for v in ordered if v > 5.0)}")
+              f"deadline {args.deadline:.1f}  over deadline: {sum(1 for v in ordered if v > args.deadline)}")
+    if any(operational.values()):
+        print("\n=== operational errors (late, missing, malformed, transport) — counted against the detector ===")
+        for label, rows in operational.items():
+            for row in rows:
+                print(f"  {label:9s} {row['seconds']:7.3f}s  {row['error']}  {row['path']}")
 
     if args.json:
         args.json.write_text(json.dumps({
             "threshold": args.threshold, "feature_mode": args.feature_mode,
             "fpr": fpr, "tpr": tpr, "recommended": best,
             "distribution": {k: report(k, scores[k], failures[k]) for k in scores},
+            "deadline_seconds": args.deadline if args.url else None,
+            "operational_errors": operational,
             "samples": per_sample,
         }, indent=2) + "\n")
         print(f"\nwrote {args.json}")

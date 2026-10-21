@@ -88,3 +88,12 @@ dataset/tools/package_submission.sh v33
 Results: `dataset/results/v33_review.json`; review of the previous candidate: `dataset/results/v32_review_workflow.json`.
 
 Copies of every log cited above (the `dataset/work/exp/` directory is git-ignored): `reports/v33-2026-10-20/`.
+
+## 6. External verification of 2026-09-21 (Codex): addressed 2026-10-21
+
+All nine findings reproduced on the current tree and were fixed; see
+[REVIEW_RESPONSE_2026-09-21.md](REVIEW_RESPONSE_2026-09-21.md). The serving code changed as a
+result (killable forked workers, bounded admission, read deadline, streamed bodies, manifest
+verification), so the v3.3 image was rebuilt and re-gated: course set 50/50 / 0/50, stalled
+upload answered `1` at the budget, peak memory 942 MiB, no OOM. The course-set decisions are
+unchanged (the model artifacts are untouched).

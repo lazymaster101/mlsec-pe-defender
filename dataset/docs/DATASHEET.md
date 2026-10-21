@@ -75,16 +75,25 @@ limitation, not a ground truth.
   training row, which inflated the held-out recent number. A feature-fingerprint
   dedup before splitting is the fix; the leakage-corrected numbers are in the audit.
 * Unlabelled and unparseable records dropped from training; unparseable *test*
-  samples are kept and scored 1, matching the server's fail-toward-detection rule,
-  so the metric is not flattered by silently discarding hard inputs.
-* **Temporal split on first-seen date**, never random: EMBER train is strictly
-  before the cutoff, test strictly after. A further inner split (months ≥ 2018-09)
+  samples are kept and scored 1 in the EMBER temporal and raw-PE/HTTP evaluations
+  (`evaluate_models.py`, `tools/evaluate.py`), matching the server's fail-toward-detection
+  rule. **Exception:** the recent MalwareBazaar/Chocolatey split (`split_recent.py`)
+  dropped its one unparseable row (a BlackCat sample) before splitting; the tool's
+  `--keep-unparseable` option (2026-10-21) carries such rows into the test side, but the
+  split `rf_adv` was trained on predates it.
+* **EMBER: temporal split on first-seen date**, never random: EMBER train is strictly
+  before the cutoff, test strictly after. **The recent set is different:** its
+  train/test split is random within family and SHA-disjoint only (not chronological;
+  84/433 test malware rows have a feature-identical training twin). It therefore
+  measures "new instance of a known family", not forward-in-time generalization
+  (PITFALL_AUDIT.md Part 6; `split_recent.py --temporal --group-duplicates` exist for a
+  future re-split, which requires retraining). A further inner split (months ≥ 2018-09)
   is the early-stopping validation set, so the 2018-11/12 test period is never seen
   during training or model selection.
-* **Adversarial augmentation (deployed model only).** The deployed `rf_adv` adds
-  synthetic, functionality-preserving adversarial *variants* of the training malware
-  (generated in memory by `tools/adv_transforms.py`, never written as PEs) so the
-  model learns to resist evasion. These are a modelling choice, not collected data.
+* **Adversarial augmentation (single-model `rf_adv` only).** `rf_adv` adds synthetic
+  feature-space perturbations of training malware rows (attribute-dict edits generated
+  in memory by `tools/adv_transforms.py`; never written as PEs, never validated or
+  executed) so the model learns to resist those perturbations. These are a modelling choice, not collected data.
   Robustness is evaluated on the **held-out `recent_test` split** with **held-out
   donors** (so a gain is generalization, not memorization of victims or donor tokens),
   and the fix's limits are reported (no transfer to an untrained mechanism; full mimicry

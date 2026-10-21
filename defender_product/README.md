@@ -16,24 +16,29 @@ at startup.
 > `V32_STATUS.md` (with the review errata). The paragraph below describes the older single-model
 > `Dockerfile` image and is kept for the NFS pipeline documentation.
 
-> **Deployed model: `rf_adv` (retrained + adversarially hardened).** The image no
-> longer ships the supplied `NFS_21_...MLSEC20.pkl`. It ships a RandomForest trained on
-> a temporally-split EMBER 2018 corpus plus recent (2020–2026) MalwareBazaar malware
-> **plus functionality-preserving adversarial variants of that malware**, served at a
-> threshold calibrated to 1 % FPR (**0.820932**). The supplied model gave **13 % FPR**
-> at its 0.25 threshold and detected only **9 % of recent malware** at a sane 1 %-FPR
-> threshold, and it collapsed to **9 %** under a cheap functionality-preserving evasion.
-> `rf_adv` fixes all three, measured on **held-out** malware: 1 % FPR by construction,
-> **66 % recent-malware detection** (the same cheap evasion is now held at **55 %** vs
-> the clean model's 7 %). This costs ~2.8 pt EMBER TPR (79.5 → 76.7 %) and ~7.6 pt clean
-> held-out recent detection (66 → 59 %) versus the clean `rf_augmented`, and it does
-> **not** harden an untrained attack mechanism or full feature-mimicry. See
+> **Single-model image: `rf_adv` (retrained + augmented with synthetic feature-space
+> perturbations).** The image no longer ships the supplied `NFS_21_...MLSEC20.pkl`. It
+> ships a RandomForest trained on a temporally-split EMBER 2018 corpus plus recent
+> (2020–2026) MalwareBazaar malware **plus synthetic feature-space perturbations of that
+> malware** (attribute-dict edits; no PE produced), served at threshold **0.820932**. That
+> threshold was chosen to give 1 % FPR on a 30 000-row *subsample of the EMBER test file*;
+> at the fixed threshold the full 100 000 test benign give **1.051 %** (Wilson 95 %
+> 0.99–1.12 %), so "1 %" is a calibration fit, not a bound (review 2026-09-21, finding 1).
+> The supplied model gave **13 % FPR** at its 0.25 threshold and detected only **9 % of
+> recent malware** at a sane 1 %-FPR threshold, and it collapsed to **9 %** under a cheap
+> feature-space perturbation. `rf_adv`, measured on **held-out** malware: **59 %
+> recent-malware detection** (254/433; the clean `rf_augmented` reaches 66 %), and the
+> same perturbation held at **55 %** vs the clean model's 7 %. This costs ~2.8 pt EMBER TPR
+> (79.5 → 76.7 %) and ~7.6 pt clean held-out recent detection (66 → 59 %) versus the clean
+> `rf_augmented`; it does **not** harden an untrained mechanism or full feature-mimicry,
+> and **no executable adversarial binary was produced or tested** (finding 3). See
 > [`../dataset/docs/COMPARISON_REPORT.md`](../dataset/docs/COMPARISON_REPORT.md) §8/§10
 > and [`../dataset/docs/PITFALL_AUDIT.md`](../dataset/docs/PITFALL_AUDIT.md) for the
-> full methodology, CIs, and honest limits. The clean `rf_augmented` (threshold 0.7565)
-> remains in the repo and is one `DF_MODEL_DIR` away for the clean-only comparison. The
-> NFS feature-extraction and array-export pipeline below is unchanged and still
-> validated bit-exactly against the supplied model.
+> full methodology, CIs, and honest limits. The clean `rf_augmented` (threshold 0.756536)
+> remains in the repo (`dataset/models/nfs_rf_augmented`) but **not in this image**, which
+> copies only `rf_adv`: switching means rebuilding with its arrays and setting
+> `DF_MALWARE_THRESHOLD=0.756536`. The NFS feature-extraction and array-export pipeline
+> below is unchanged and still validated bit-exactly against the supplied model.
 
 ## Quick start
 
@@ -106,14 +111,19 @@ model's pickle, and the deployed `rf_adv` uses the same export/runtime path):
 **Established — FPR and TPR (for `rf_adv`).** Measured on labelled corpora, not asserted
 (full numbers, CIs and method in [`../dataset/docs/COMPARISON_REPORT.md`](../dataset/docs/COMPARISON_REPORT.md)):
 
-* **FPR calibrated to 1 %** on 30 000 held-out EMBER benign; 0.5 % on the 200-PE recent
-  goodware set; 0/7 on the classic goodware spot check.
+* **FPR 1.00 % on the 30 000-row calibration subsample** of the EMBER test file (the
+  threshold was chosen there), **1.051 % on all 100 000 EMBER test benign** (1,051;
+  Wilson 95 % 0.99–1.12 %), **1/60 on the held-out recent goodware** (1.7 %, Wilson
+  0.3–8.9 %; 0/140 on the recent goodware it was trained on, which must not be pooled
+  in); 0/7 on the classic goodware spot check.
 * **EMBER temporal TPR @ 1 % FPR = 76.7 %** (`rf_augmented` 79.5 %, supplied 71.2 %).
   The **≥ 95 % TPR goal is not reachable** in the NFS feature space (§6 of the report).
-* **Held-out recent-malware detection 66 %** (`rf_adv` 59 %; supplied ~9 %), and **55 %**
-  under a cheap functionality-preserving evasion (clean model 7 %). Adversarial-training
-  limits are stated honestly: no transfer to an untrained mechanism, ~99 % evaded under
-  full feature-mimicry (report §10).
+* **Held-out recent-malware detection 59 %** for `rf_adv` (254/433; the clean
+  `rf_augmented` 66 %; supplied ~9 %; 53 % on the 349 rows without a feature-identical
+  training twin), and **55 %** under a cheap synthetic feature-space perturbation (clean
+  model 7 %). Limits: no transfer to an untrained mechanism, ~99 % evaded under full
+  feature-mimicry, and these are feature-space numbers — no adversarial binary was
+  produced or executed (report §10).
 
 Re-run any of this with `tools/evaluate.py` (this image) or the dataset tools
 (`dataset/tools/evaluate_adversarial.py`) — see *Calibration* below.
@@ -148,29 +158,46 @@ ordinary goodware. This image therefore defaults to `DF_FEATURE_MODE=training`.
 
 | Variable                   | Default          | Meaning                                        |
 |----------------------------|------------------|------------------------------------------------|
-| `DF_MODEL_DIR`             | `/app/models/nfs`| directory of exported arrays                   |
-| `DF_MALWARE_THRESHOLD`     | `0.25`           | malicious when `P(malware) > threshold`        |
-| `DF_FEATURE_MODE`          | `training`       | `training` or `legacy` (see above)             |
-| `DF_PORT` / `DF_HOST`      | `8080` / `0.0.0.0` | listen address                               |
-| `DF_WORKERS`               | `2`              | concurrent inference slots                     |
-| `DF_REQUEST_BUDGET_SECONDS`| `4.0`            | answer `1` rather than overrun the 5 s budget  |
-| `DF_MAX_BODY_BYTES`        | `67108864`       | larger bodies are drained and answered `1`     |
+| Variable | Image (`Dockerfile`) | Code default | Meaning |
+|---|---|---|---|
+| `DF_MODEL_DIR`             | `/app/models/rf_adv` | `models/nfs` | directory of exported arrays (manifest digests verified at load) |
+| `DF_MALWARE_THRESHOLD`     | `0.820932` | `0.25` | malicious when `P(malware) > threshold` |
+| `DF_FEATURE_MODE`          | `training` | `training` | `training` or `legacy` (see above) |
+| `DF_PORT` / `DF_HOST`      | `8080` / `0.0.0.0` | same | listen address |
+| `DF_WORKERS`               | `2` | `2` | inference worker processes; also the admission bound |
+| `DF_WORKER_MODE`           | `process` | `process` | `process` = forked, killable workers; `thread` = legacy pool that cannot interrupt native calls (logged as a warning; never used in the images) |
+| `DF_REQUEST_BUDGET_SECONDS`| `4.5` | `4.0` | total budget from headers-in to answer: body read + wait for a worker + inference; anything that cannot finish is answered `1` |
+| `DF_MAX_BODY_BYTES`        | `67108864` | same | larger bodies are drained and answered `1` |
 
-`0.25` is the competition default: `NeedForSpeedModel.predict_threshold` decides
-`P(benign) < 0.75`, which is the same rule.
+`0.25` is the competition default (`NeedForSpeedModel.predict_threshold` decides
+`P(benign) < 0.75`, the same rule) and is what the supplied-model tests assert; the image
+serves `rf_adv` at `0.820932`.
 
 ## Failing toward detection
 
 The rules score a timed-out sample as a successful evasion, so every failure path
 returns a decision inside the budget rather than an error:
 
-* unparseable or truncated input → `1`
-* work exceeding `DF_REQUEST_BUDGET_SECONDS` → `1` (the worker is abandoned, and
-  `DF_WORKERS` bounds how many can pile up)
+* unparseable input (LIEF rejects it) → `1`
+* a body that stalls or is truncated before the deadline → `1` (the socket carries a
+  read deadline; the connection is then closed)
+* no inference worker free before the request's own deadline → `1` (`saturated`;
+  admission is bounded by `DF_WORKERS`, nothing is queued past its deadline, and no
+  input buffer outlives its request)
+* inference exceeding the remaining budget → `1` (`overrun`): the worker **process is
+  SIGKILLed** and replaced, so a native call holding the interpreter lock cannot push
+  the answer past the budget; a worker that crashes is likewise replaced (`worker_failed`)
 * body over `DF_MAX_BODY_BYTES` → drained without buffering, then `1`
 
-The trade-off is that a *benign* file that cannot be parsed becomes a false
-positive. This matches the upstream reference, which also returns `1` on
+`DF_REQUEST_BUDGET_SECONDS` is counted from the moment the request headers are in and
+covers body read, worker wait and inference; the request body is streamed from the
+client socket into the worker, so this process never holds a whole sample. What the
+server cannot control is time spent before the headers arrive. All of this replaced the
+earlier thread pool, whose timeouts abandoned the caller but not the work (review
+2026-09-21, finding 2; `tests/test_workers.py`, `tests/test_server_deadlines.py`).
+
+The trade-off is that a *benign* file that cannot be parsed, or whose upload stalls,
+becomes a false positive. This matches the upstream reference, which also returns `1` on
 `lief.bad_format`.
 
 ## Calibration
@@ -186,7 +213,11 @@ python tools/evaluate.py --benign ... --malicious ... --url http://127.0.0.1:808
 
 It reports FPR/TPR at the deployed threshold, the score distribution per class,
 the best threshold meeting the FPR target, and latency percentiles against the
-5-second budget. Set `DF_MALWARE_THRESHOLD` to whatever it recommends.
+5-second budget. Set `DF_MALWARE_THRESHOLD` to whatever it recommends — on a calibration
+set that is disjoint from the one you then report on. In `--url` runs every sample has a
+`--deadline` (default 5.0 s, the challenge's): an answer that is late, missing or
+malformed counts against the detector (malware = miss, goodware = false positive), stays
+in the denominator, and is listed under operational errors (review 2026-09-21, finding 4).
 
 ## Layout
 
@@ -194,11 +225,12 @@ the best threshold meeting the FPR target, and latency percentiles against the
 defender/features.py   PE attribute extraction (lief), both schemas
 defender/hashing.py    HashingVectorizer transform, sklearn-exact
 defender/model.py      one-hot + hashing + MaxAbsScaler + forest traversal
-defender/server.py     stdlib HTTP endpoint
-models/nfs/            exported arrays, schema.json, manifest.json with SHA-256s
+defender/server.py     stdlib HTTP endpoint: read deadline, bounded admission, fail toward detection
+defender/workers.py    forked inference workers, SIGKILLed at the deadline and replaced
+models/nfs/            exported arrays, schema.json, manifest.json with SHA-256s (verified at load)
 tools/export_legacy_model.py  offline pickle → arrays conversion (not in the image)
-tools/evaluate.py      FPR/TPR measurement and threshold selection
-tests/                 26 tests incl. sklearn-derived golden vectors
+tools/evaluate.py      FPR/TPR measurement and threshold selection (5 s deadline over HTTP)
+tests/                 9x tests incl. sklearn-derived golden vectors, deadline and integrity tests
 ```
 
 ## Tests
