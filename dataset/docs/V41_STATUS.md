@@ -63,3 +63,21 @@ Declare first, then run: compare robustness at a **matched, pre-declared calibra
 the goodware2 development pool only, and do not read the holdout again except once for a
 final FPR report. Candidate improvements, in order: more unseen-family malware
 (few-shot/learning curves on a time split), then an EMBER2024 member.
+
+## Class test set, scored once for the record (2026-10-20)
+
+At the user's request, v4 and v4.1 were scored once on the course validation set, the
+same way v3 was after freezing. Neither was trained or tuned on it, and this result was
+**not** used to select anything.
+
+| | TP | FP | Course bar | Misses |
+|---|---|---|---|---|
+| v3 (sure-shot) | 48/50 | 0/50 | PASS | 2 unlabeled |
+| v4 | 43/50 | 0/50 | FAIL | 1 Phorpiex, 1 RemusStealer, 5 unlabeled |
+| v4.1 | 43/50 | 0/50 | FAIL | same 7 |
+
+Goodware is identical across versions (48 trust-cleared, 2 ML-scored ≥3.5 logits below
+threshold). The malware loss is partly the higher cutoff and partly the retrained `rf`
+member rating small unsigned EXEs as benign (e.g. RemusStealer r 0.32 → 0.14), the same
+change that cut false alarms on unsigned third-party software 20×. This confirms the
+review's conclusion: v3 ships for the grade.

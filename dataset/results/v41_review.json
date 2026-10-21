@@ -257,5 +257,20 @@
         "v2_tpr": 0.7679083094555874
       }
     }
+  },
+  "grading_set_once_2026-10-20": {
+    "v3": {
+      "tp": 48,
+      "fp": 0
+    },
+    "v4": {
+      "tp": 43,
+      "fp": 0
+    },
+    "v41": {
+      "tp": 43,
+      "fp": 0
+    },
+    "note": "scored once at the user's request; never trained or tuned on; not used for selection"
   }
 }
