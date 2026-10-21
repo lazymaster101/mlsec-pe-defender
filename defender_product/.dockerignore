@@ -14,3 +14,6 @@
 !models/fusion.json
 !LICENSE.upstream
 **/__pycache__
+!models/ember_ft_v31/
+!models/ember_ft_v31/**
+!models/fusion_v31.json

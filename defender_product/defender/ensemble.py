@@ -7,6 +7,10 @@ Decision order for one file:
   2. Authenticode TAMPER - a signature that is present but broken (digest mismatch,
      missing signer cert, invalid signer) -> malicious. 95/1,455 recent malware vs
      0/11,385 goodware carry one; it is the classic "stolen signature blob" tell.
+  2b. (v3.1) EMBEDDED COMMAND LINE - the file's own bytes contain a PowerShell command
+     line that bypasses the execution policy AND hides its window -> malicious
+     (defender/cmdline.py: 0/13,503 goodware, 4/1,455 training malware). Deterministic,
+     additive only: it never clears a file.
   3. ML fusion - log-odds logistic fusion of up to three members, fitted on
      out-of-fold scores:  e = ember_gbdt (EMBER-2381, EMBER 2018)
                           r = rf_adv     (NFS header/imports, recent + adversarial)
@@ -30,6 +34,7 @@ import os
 
 import numpy as np
 
+from defender import cmdline
 from defender import features as nfs_features
 from defender import trust
 from defender.model import Model
@@ -106,6 +111,10 @@ class Ensemble:
         if tampered:
             out.update(verdict=1, reason="tampered_signature")
             return out
+        tell = cmdline.embedded_powershell_bypass(bytez)
+        if tell:
+            out.update(verdict=1, reason="embedded_powershell_bypass", tell=tell)
+            return out
         m = {}
         try:
             m["e"], m["f"] = self._ember_members(bytez, pe)
@@ -136,9 +145,11 @@ class Ensemble:
         version = self._fusion.get("version", "v4" if mem.get("r") == "rf_v4" else "v3")
         return {"model_name": f"ensemble-{version}",
                 "layers": ["authenticode_trust(microsoft_pinned_pca)", "authenticode_tamper",
+                           "embedded_powershell_bypass",
                            f"logodds_fusion({mem.get('e')}, {mem.get('r')}, {mem.get('f')})"],
                 "members": self._fusion["members"], "fallbacks": ["ef", "r"],
                 "fusion": {k: efr[k] for k in ("order", "coef", "intercept")},
                 "threshold": self._t, "threshold_offset": self._offset,
-                "rule": "benign if Microsoft-trusted; malicious if signature tampered; "
+                "rule": "benign if Microsoft-trusted; malicious if signature tampered or if an "
+                        "embedded hidden PowerShell bypass command line is present; "
                         "else malicious if intercept + sum(coef*logit(member)) > threshold"}

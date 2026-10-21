@@ -21,6 +21,15 @@ drivers Microsoft-signed. Pins were taken from Microsoft packages on nuget.org (
 from evaluation data); PCA 2011's SHA-1 f252e794...2c52135 matches Microsoft's
 published thumbprint.
 
+v3.1 adds the two pre-2010 generations of the same first-party PCA, which the v3 list
+lacked (Microsoft re-keyed "Microsoft Code Signing PCA" in 2006-01 and again in 2010-08;
+only the 2010 issue was pinned, so 2006-2012 Microsoft binaries fell through to the ML
+layer). Provenance (tests/fixtures/ms_pki/README.md, checked by tests/test_v31.py):
+  * the 2000 PCA is byte-identical to http://www.microsoft.com/pki/certs/CodeSignPCA2.crt;
+  * the 2006 PCA's own RSA signature verifies under the Microsoft Root Certificate
+    Authority (http://www.microsoft.com/pki/certs/MicrosoftRootCert.crt, the AIA URL the
+    PCA itself names), so its authenticity does not depend on where its bytes came from.
+
 Any parsing error -> not trusted (the ML models then decide, fail-toward-detection).
 """
 from __future__ import annotations
@@ -35,6 +44,9 @@ PINNED_PCA_FULL: dict[str, str] = {
     "fe229efc927f6d77b738896752a21803a59736baa17bf5be9a50c72e219cbcd2": "Microsoft Windows Code Signing PCA 2024",  # d30f05f6...
     "9cbf22fae0dd53a7395556ce6154aa14a0d03360aa8c51cfea05d1fd8819e043": "Microsoft Code Signing PCA",               # 3caf9ba2...
     "9aad6c1a83a1b974ba574a995af35b8ca772da919270db1605a8b81e1bbc896f": "Microsoft Code Signing PCA 2010",          # 8bfe3107...
+    # v3.1: earlier issues of the first-party "Microsoft Code Signing PCA" (see docstring)
+    "930c1e42359239558adce064b019473db84dd09b9f3fc6586d099dc222a5a392": "Microsoft Code Signing PCA (2006 issue)",   # fdd1314e...
+    "6a3c4d89cd6297023831b9c4f718ce71cf8753a2be49e021245ec6ba5066ff00": "Microsoft Code Signing PCA (2000 issue)",   # d07ea640...
 }
 
 _DIGESTINFO = {

@@ -5,6 +5,14 @@ classifier over HTTP. The runtime has no scikit-learn, no pandas, no scipy, and
 never unpickles anything: the forest ships as plain `.npy` arrays, memory-mapped
 at startup.
 
+> **v3.1 (2026-10-20, branch `release/sure-shot-v3.1`).** `Dockerfile.ensemble` now serves the
+> v3.1 layered detector: Authenticode trust (now including the 2000 and 2006 generations of the
+> Microsoft Code Signing PCA), Authenticode tamper, an embedded hidden-PowerShell command-line tell,
+> and the log-odds fusion of `ember_gbdt`, `rf_adv` and `ember_ft_v31` (800 rounds). Course set,
+> scored once: **49/50 malware, 0/50 goodware** (v3: 48/50). Gates, limits and the remaining miss:
+> [`../dataset/docs/V31_STATUS.md`](../dataset/docs/V31_STATUS.md). The paragraph below describes the
+> older single-model `Dockerfile` image and is kept for the NFS pipeline documentation.
+
 > **Deployed model: `rf_adv` (retrained + adversarially hardened).** The image no
 > longer ships the supplied `NFS_21_...MLSEC20.pkl`. It ships a RandomForest trained on
 > a temporally-split EMBER 2018 corpus plus recent (2020–2026) MalwareBazaar malware

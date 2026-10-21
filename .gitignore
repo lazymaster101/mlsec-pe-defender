@@ -1,18 +1,49 @@
 # Never commit credentials or collected samples.
 .vt_key
+.mb_key
 *.apikey
 dataset/raw/
 dataset/quarantine/
+dataset/work/
+
+# Raw benign corpora (tens of GB; rebuilt by the collectors)
 dataset/goodware/
 dataset/goodware2/
-dataset/work/
-dataset/models/
-# Local environments / caches
-.venv/
-__pycache__/
+
+# The course validation set contains live malware: never redistribute it.
+csce704-blackbox-validation-100-samples-20261014-corrected/
+
+# Supplied competition pickle (188 MB; converted offline by tools/export_legacy_model.py)
+NFS_21_ALL_hash_50000_WITH_MLSEC20.pkl
+
+# Third-party papers and vendored upstream repositories
+704papers/
+tmp/
+ml-cybersecuritiy-course/
+2021-Machine-Learning-Security-Evasion-Competition/
+
+# Environments, caches, OS files
+defender_product/.venv/
+**/__pycache__/
 *.pyc
 .DS_Store
-# Large superseded models (kept locally; regenerate with defender_product/tools)
+
+# Large score dumps from the verification run (json/log/py are kept)
+reports/**/*.npz
+
+# Model exports that are NOT shipped (each ~60 MB; reproducible from dataset/tools).
+# Shipped: defender_product/models/{rf_adv,ember_gbdt,ember_ft,ember_ft_v31,fusion*.json}
 defender_product/models/nfs/
-defender_product/models/rf_augmented/
 defender_product/models/rf_tuned/
+defender_product/models/rf_augmented/
+defender_product/models/rf_v4/
+defender_product/models/rf_v41/
+dataset/models/
+
+# Any other key files the user drops here
+malwarebazaarkey.txt
+*key*.txt
+*_key
+
+# Vendored third-party repositories and other sessions' candidates
+dataset/vendor/
