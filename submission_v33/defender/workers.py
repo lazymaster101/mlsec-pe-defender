@@ -42,6 +42,7 @@ REPLY_TIMEOUT = 30.0          # child -> parent reply and warm-up round trip
 MAX_REQUESTS_PER_WORKER = 50  # recycle the worker after this many requests ...
 RECYCLE_BODY_BYTES = 8 << 20  # ... or after one body this large (heap fragmentation)
 RESPAWN_ATTEMPTS = 5
+RESPAWN_RETRY_SECONDS = 2.0   # after RESPAWN_ATTEMPTS failures, retry every this many seconds
 
 
 def _send_frame(sock: socket.socket, payload: bytes, deadline: float) -> None:
@@ -224,6 +225,9 @@ class WorkerPool:
             self._stats["respawn_failed"] += 1
         if block:
             raise RuntimeError(f"inference worker failed to start: {last!r}")
+        # Never give up: keep trying in the background until the pool is full again
+        # (final verification 2026-10-22: five failures used to leave the pool empty for good).
+        threading.Timer(RESPAWN_RETRY_SECONDS, self._spawn, args=(False,)).start()
 
     def _spawn_async(self, reap: Optional[_Worker] = None) -> None:
         def run() -> None:
@@ -271,6 +275,10 @@ class WorkerPool:
             worker = self._idle.get(timeout=wait)
         except queue.Empty:
             return 1, "saturated"
+        if deadline - time.monotonic() <= 0:
+            # nothing can finish in time: answer 1 without touching the healthy worker
+            self._idle.put(worker)
+            return 1, "overrun"
         try:
             remaining_bytes = length
             worker.sock.settimeout(max(0.0, deadline - time.monotonic()))
@@ -282,7 +290,7 @@ class WorkerPool:
                     chunk = b""
                 if not chunk:
                     # the client stalled: the worker is mid-frame and cannot be reused
-                    self._retire(worker, "died")
+                    self._retire(worker, "recycled")
                     self._spawn_async(reap=worker)
                     return 1, "slow_upload"
                 budget = deadline - time.monotonic()

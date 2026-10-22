@@ -1,8 +1,10 @@
 # Response to the independent verification of 2026-09-21
 
-*Last edited 2026-10-22. Refers to images `mlsec-defender:v33` (arm64, id aedfdc7085b8…) and
-`mlsec-defender:v33-amd64` (id 43716ef66a14…), built from `defender_product/Dockerfile.ensemble` at the
-tip of `release/sure-shot-v3.1`, and to `mlsec-defender-submission-v33.zip` (sha256 08440fb2f35e2caecba38b089e4e38139b2d4a5b4b2336ac179343dd077ad699),
+*Last edited 2026-10-22. Refers to images `mlsec-defender:v33` (arm64, id 82413471f970…) and
+`mlsec-defender:v33-amd64` (id df8cc840c35e…), built from `defender_product/Dockerfile.ensemble` with the
+serving code committed as b901710 on `release/sure-shot-v3.1` (the image's `defender/*.py` match that
+commit byte for byte), and to `mlsec-defender-submission-v33.zip` (sha256
+8d3ae43c01031e5bb6536f10b41b803792475013e4e02cca1992d683e7de88b8),
 produced by `dataset/tools/package_submission.sh v33`, which starts the image built from the zip
 and requires it to serve before reporting success. The zip packaged on 2026-10-21 lacked
 `defender/workers.py` and its image could not start; that zip was replaced on 2026-10-22.*
@@ -44,7 +46,10 @@ means the defect existed in the current tree, not only in the September evidence
 * **Memory headroom**: see the memory follow-up below (the first forked-worker build
   peaked at the 1 GiB limit; the thread-pool v3.3 build at 897 MiB and the frozen v3 at
   1024 MiB, both in `reports/v33-2026-10-20/container_gate_v33_quiet.log` and
-  `container_gate_v3_baseline_quiet.log`). The course set peaks at ~230 MiB.
+  `container_gate_v3_baseline_quiet.log`). The course set peaks at 382 MiB cgroup (page
+  cache included) on arm64 and 318 MiB under amd64 emulation in the final gates
+  (`reports/review-response-2026-10-21/container_gate_v33_final_quiet_memsplit.log`,
+  `container_gate_v33_final_amd64_quiet.log`).
 
 ## Recomputed comparison numbers (finding 5)
 
@@ -70,31 +75,42 @@ reproduced exactly by the review; they are unchanged.
 
 ## Memory follow-up (2026-10-21)
 
-Splitting the cgroup counter showed anonymous memory reaching ~950 MiB while a 67 MB benign
-file is scored with two forked workers (idle ~400 MiB). An in-process profile attributes
-~400 MiB of transient to the EMBER feature extraction itself on such a file, so two
-concurrent large requests cannot fit under 1 GiB in any design; each idle worker adds
-~100 MiB. Both images therefore run **one worker** (`DF_WORKERS=1`): a second concurrent
-request waits for the worker up to its own deadline instead of doubling the transient
-(course-set files take < 100 ms each), and idle memory drops by ~100 MiB. The gate log
-`reports/review-response-2026-10-21/container_gate_v33_final_1worker_quiet.log` records
-the result. After the byte-histogram fix and worker recycling (re-verification section),
-the final arm64 image gives, on a quiet host with a 20 ms in-container sampler
-(`container_gate_v33_final_quiet_memsplit.log`): course set 50/50 at p95 40 ms; the six
-60+ MB benign files answered `0` in 2.0–2.8 s; **cgroup peak 603 MiB** after them (the
-first forked-worker build hit 1024); **anonymous memory at most 410 MiB** while scoring the
-67 MB file three times, idle 184 MiB; no OOM. Against the same container
-(`stalled_upload_probe.log`): a stalled upload is answered `1` at 4.52 s and a benign PE
-sent 50 ms later is scored `0`; a benign PE after a 40 s idle gap is scored `0`; a drip
-upload (one byte per 0.5 s) is answered `1` at 4.51 s.
+Splitting the cgroup counter showed anonymous memory reaching 952 MiB while a 67 MB benign
+file was scored with two forked workers, with 313 MiB anonymous idle (figures from the
+verifiers' own 20 ms sampling, quoted in `dataset/results/review_response_verification.json`;
+the two-worker cgroup gate, `container_gate_v33_final_quiet.log`, shows 398 MiB after the
+course set and a 1024 MiB peak). The transient belongs to the per-request feature
+extraction (the byte histogram alone, see below), so two concurrent large requests cannot
+fit under 1 GiB in any design; each idle worker adds ~130 MiB anonymous (313 → 182 MiB) or
+~190 MiB cgroup (398 → 209 MiB, `container_gate_v33_final_1worker_quiet.log`). Both images
+therefore run **one worker** (`DF_WORKERS=1`): a second concurrent request waits for the
+worker up to its own deadline instead of doubling the transient (course-set files take at
+most 58 ms each on native arm64 in the final gate, up to 302 ms under amd64 emulation).
 
-**amd64, under emulation on this arm64 host** (`container_gate_v33_final_amd64_quiet.log`):
-course set 50/50 at p95 76 ms; the six large files answered `0` in 3.0–3.95 s (an earlier
-build, before the histogram fix, answered the 67 MB file at 4.51 s); cgroup peak 517 MiB,
-anonymous memory at most 468 MiB, idle 239 MiB. Emulation is roughly twice as slow as
-native x86 and charges the emulator's own memory to the container, so these are
-conservative; the native x86 figures have **not** been measured. The course-set files are
-≤ 2.9 MB and peak at ~310 MiB under emulation.
+After the byte-histogram fix and worker recycling (re-verification section), the final
+arm64 image gives, on a quiet host with a 20 ms in-container sampler
+(`container_gate_v33_final_quiet_memsplit.log`, image 82413471f970): course set 50/50 at
+p95 40 ms, max 58 ms; the six 60+ MB benign files answered `0` in 2.06–2.75 s; **cgroup
+peak 603 MiB** after them, of which 165 MiB is page cache (`file=165MiB` in the same log;
+an independent re-run of the previous build measured 435 MiB with no page cache and the
+same anonymous figures); **anonymous memory at most 409 MiB** while scoring the 67 MB file
+three times, idle 182 MiB; no OOM; container log clean. Against the same container
+(`stalled_upload_probe.log`): a benign PE sent 50 ms after a stalled upload started is
+scored `0` in 16 ms while the stall is still pending; the stalled upload is answered `1`
+at 4.52 s; a benign PE after a 40 s idle gap is scored `0`; a drip upload (one byte per
+0.5 s) is answered `1` at 4.51 s; two requests on one keep-alive connection 6 s apart are
+both scored `0`.
+
+**amd64, under emulation on this arm64 host** (`container_gate_v33_final_amd64_quiet.log`,
+image df8cc840c35e): course set 50/50 at p95 78 ms, max 302 ms; five of the six large
+files answered `0` in 3.3–4.0 s and **the 66.8 MB file overran the 4.5 s budget (4.52 s)
+and was answered `1`** in this run, where the previous run of the same configuration took
+3.95 s; cgroup peak 516 MiB, anonymous memory at most 467 MiB, idle 238 MiB. Emulation
+ran 1.4–2.0× slower than the native arm64 build on these files (p95 78 vs 40 ms; 67 MB
+file 4.52 vs 2.75 s) and charges the emulator's own memory to the container, so these are
+conservative; the native x86 figures have **not** been measured. On the grading host a
+file of that size would sit at the edge of the budget; the course-set files are ≤ 2.9 MB
+and peak at 318 MiB under emulation.
 
 ## Re-verification of the fixes (2026-10-22) and what it found
 
@@ -107,6 +123,6 @@ also found defects introduced by the first fix, all corrected the same day:
 | **Idle workers exited after 30 s.** The child's reply path left a 30 s timeout on its socket; the next idle `recv` timed out, the child exited, and the next request was answered `1` without scoring (`worker_failed`). Reproduced in-process and in the shipped container (a request after a 35 s pause → `1`). | `_recv_exact` resets the timeout when it is asked to block; recycling made explicit (below). | `test_workers.RegressionsFromVerification.test_idle_worker_does_not_exit_after_the_reply_timeout` (reply timeout shrunk to 0.3 s) |
 | **Slow-drip uploads escaped the budget.** `rfile.read(n)` retried the per-recv timeout for every byte, so one byte every 3 s stretched a request to 9–16 s. | Body reads use `read1` (one `recv` per call) and the relay re-checks the deadline per chunk. | `test_server_deadlines.DripUploadTest` (one byte per 0.25 s, answered at the 1 s budget) |
 | **The submission zip lacked `defender/workers.py`**; the image built from it could not start (the packaging check only listed modules). | Module added; `package_submission.sh` now starts the from-zip image and requires `/health` and a benign classification before it reports success. | packaging run |
-| **Worker memory grew across large files** and the gate's 0.2 s sampler had understated the transient (verifier's 20 ms sampler: ~900 MiB anon on the 67 MB file, rising after repeated large files). Profiling attributed 509 MiB of it to EMBER's byte histogram (`np.bincount` casts the whole buffer to 64-bit). | Chunked histogram (identical counts, 32 MiB transient); workers recycle after 50 requests or any body ≥ 8 MiB without losing a request; no lowercase copy of the body in the command-line tell; gate samples anonymous memory every 20 ms in the container over three large requests. | `test_ember_compat_memory` (identical to the original on synthetic and real inputs; transient bound), `test_workers` recycling tests, gate log |
+| **Worker memory grew across large files** and the gate's 0.2 s sampler had understated the transient (verifier's 20 ms sampler: ~900 MiB anon on the 67 MB file, rising after repeated large files). Profiling attributed 509 MiB of it to EMBER's byte histogram (`np.bincount` casts the whole buffer to 64-bit; derived figure 66,763,664 B × 8, the profiling run itself was not logged). The EMBER strings extractor still lowercases a copy of the body (`ember_compat.py`, ~67 MB transient on the largest file). | Chunked histogram (identical counts, 32 MiB transient); workers recycle after 50 requests or any body ≥ 8 MiB without losing a request; no lowercase copy of the body in the command-line tell; gate samples anonymous memory every 20 ms in the container over three large requests. | `test_ember_compat_memory` (identical to the original on synthetic and real inputs; transient bound), `test_workers` recycling tests, gate log |
 | Failed respawn never retried; a non-OS exception could drop a worker from the pool. | Respawn retries with backoff (5 attempts, then every 2 s indefinitely: the final verification found the pool could stay empty for good after five failures); any exception retires and replaces the worker; a request whose deadline has already passed when it gets a worker is answered `1` without killing that worker. | `test_workers.FinalVerificationRegressions` |
 | Response-document provenance: the stalled-upload probe (4.51 s), the thread-pool and frozen-v3 peaks were quoted without a log in the cited folder; "no EMBER headline changed" was off by one sample for two models; the suite count was 92/96, not 94. | Citations fixed; the stalled-upload probe is now saved as `reports/review-response-2026-10-21/stalled_upload_probe.log`. Third round (final verification): the test count was corrected again to the branch count (106); `PAPER_CONCEPTS.md` and `RICHER_FEATURES_ENSEMBLE.md` still carried the "Lucas recipe" / "ceiling" wording and were relabelled; the memory figures below were replaced by logged values; the gate script now lives at `dataset/tools/container_gate.sh`. | — |

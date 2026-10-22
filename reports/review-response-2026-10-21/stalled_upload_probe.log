@@ -1,8 +1,9 @@
 image: {'spawned': 1, 'killed_overrun': 0, 'died': 0, 'recycled': 0, 'respawn_failed': 0, 'live': 1, 'mode': 'process', 'workers': 1} budget 4.5
-benign PE -> ({'result': 0}, 0.022)
+benign PE -> ({'result': 0}, 0.024)
+benign PE 50 ms after the stall started -> ({'result': 0}, 0.016)
 stalled upload (4 declared, 2 sent) -> b'{"result": 1}' after 4.52s
-benign PE 50 ms after the stall -> ({'result': 0}, 0.031)
-idle 40 s, then benign PE -> ({'result': 0}, 0.042)
+idle 40 s, then benign PE -> ({'result': 0}, 0.048)
 drip upload (1 byte / 0.5 s, 40 declared) -> b'{"result": 1}' after 4.51s
-benign PE after the drip -> ({'result': 0}, 0.028)
-counts: {'benign': 4, 'malicious': 0, 'unparseable': 0, 'overrun': 0, 'saturated': 0, 'slow_upload': 2, 'worker_failed': 0, 'oversize': 0}
+keep-alive request after 0 s gap -> b'{"result": 0}'
+keep-alive request after 6 s gap -> b'{"result": 0}'
+counts: {'benign': 5, 'malicious': 0, 'unparseable': 0, 'overrun': 0, 'saturated': 0, 'slow_upload': 2, 'worker_failed': 0, 'oversize': 0} workers: {'spawned': 1, 'killed_overrun': 0, 'died': 0, 'recycled': 0, 'respawn_failed': 0, 'live': 1, 'mode': 'process', 'workers': 1}

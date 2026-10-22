@@ -131,6 +131,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # read under this timeout too (a slow-loris holds a handler thread, never a worker).
         self.connection.settimeout(KEEPALIVE_IDLE_SECONDS)
 
+    def handle_one_request(self) -> None:
+        # Restore the keep-alive idle timeout before every request line: the body read
+        # lowers the socket timeout to the remaining budget and must not leave it there
+        # (final verification 2026-10-22: idle keep-alive connections dropped after ~budget).
+        try:
+            self.connection.settimeout(KEEPALIVE_IDLE_SECONDS)
+        except OSError:
+            pass
+        super().handle_one_request()
+
     def log_message(self, fmt: str, *args: Any) -> None:  # quieter default logging
         pass
 
