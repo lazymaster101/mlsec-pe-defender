@@ -46,7 +46,9 @@ class Model:
         # it for experiments on hand-edited arrays and is logged in info().
         self.manifest_verified = False
         manifest_path = directory / "manifest.json"
-        if manifest_path.is_file() and os.environ.get("DF_SKIP_MANIFEST_VERIFY") != "1":
+        if os.environ.get("DF_SKIP_MANIFEST_VERIFY") != "1":
+            if not manifest_path.is_file():
+                raise ValueError(f"{directory}: manifest.json is missing (set DF_SKIP_MANIFEST_VERIFY=1 to load unverified)")
             self._verify_manifest(directory, json.loads(manifest_path.read_text()))
             self.manifest_verified = True
 

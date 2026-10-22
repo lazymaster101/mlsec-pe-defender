@@ -101,7 +101,7 @@ operating points we will never run at. Reported alongside it:
 
 * TPR at the 1 % FPR operating point, with a confidence interval
 * per-family and per-month slices
-* TPR on adversarially transformed malware — **measured: 75 % → 9 %** on the clean
+* TPR on adversarially transformed malware rows (feature-space perturbations) — **measured: 75 % → 9 %** on the clean
   model under a cheap combined transform, **hardened to 55 % on held-out malware by the
   deployed adversarially-trained `rf_adv`** (COMPARISON_REPORT §10), with the fix's
   limits (no transfer to an untrained mechanism; full mimicry still evades) reported

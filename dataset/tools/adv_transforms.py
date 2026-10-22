@@ -101,7 +101,7 @@ def attack_E(mal: dict, donor: dict, rng: random.Random) -> dict:
 
 def attack_F(mal: dict, donor: dict, rng: random.Random) -> dict:
     """Section-injection: add benign sections/resources (structural). Adding unused
-    sections is functionality-preserving. HELD OUT of training on purpose — a detection
+    sections is intended to be functionality-preserving (unverified). HELD OUT of training on purpose — a detection
     gain here is generalization to an attack mechanism the model never trained on."""
     a = dict(mal)
     a["numberof_sections"] = int(mal.get("numberof_sections", 1)) + rng.choice([2, 3, 4])

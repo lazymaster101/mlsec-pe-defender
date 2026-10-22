@@ -1,70 +1,70 @@
-[v33final2] ready after 3s
-[v33final2] image: sha256:5bcf5df4b106  size: 764 MB
-[v33final2] /model: ensemble-v33 thr=4.0819 ['authenticode_trust(microsoft_pinned_pca)', 'authenticode_tamper', 'embedded_powershell_bypass', 'logodds_fusion(ember_gbdt, rf_adv, ember_gbdt+ember_ft_v33)']
-[v33final2] === course set over HTTP (scored once per candidate) ===
-[v33final2] TP=50 FN=0 FP=0 TN=50 | TPR=100.0% FPR=0.0% | PASS | errors=0 (late>5s: 0) | latency p95=40ms max=101ms
-[v33final2] mem after course set: 313 MiB peak: 315 MiB
-[v33final2] === largest goodware2 files (1 CPU) ===
-     66.8 MB   3.30 s  result=0  choco:git.install
-     65.7 MB   2.21 s  result=0  github:agalwood/Motrix
-     64.5 MB   2.69 s  result=0  github:memstechtips/Winhance
-     64.4 MB   2.23 s  result=0  choco:kubernetes-helm
-     62.6 MB   2.12 s  result=0  github:devhubapp/devhub
-     62.2 MB   2.09 s  result=0  github:agalwood/Motrix
-[v33final2] mem peak after large files: 1024 MiB  oom_kill: oom_kill 0
-[v33final2] memory.stat now (anon = process memory, file = reclaimable page cache):  [v33final2] memory.stat now (anon = process memory, file = reclaimable page cache): anon 420818944
-file 79601664
-kernel 7106560
-kernel_stack 81920
-pagetables 2961408
+[v33final3] ready after 3s
+[v33final3] image: sha256:aedfdc7085b8  size: 764 MB
+[v33final3] /model: ensemble-v33 thr=4.0819 ['authenticode_trust(microsoft_pinned_pca)', 'authenticode_tamper', 'embedded_powershell_bypass', 'logodds_fusion(ember_gbdt, rf_adv, ember_gbdt+ember_ft_v33)']
+[v33final3] === course set over HTTP (scored once per candidate) ===
+[v33final3] TP=50 FN=0 FP=0 TN=50 | TPR=100.0% FPR=0.0% | PASS | errors=0 (late>5s: 0) | latency p95=40ms max=67ms
+[v33final3] mem after course set: 369 MiB peak: 382 MiB
+[v33final3] === largest goodware2 files (1 CPU) ===
+     66.8 MB   2.81 s  result=0  choco:git.install
+     65.7 MB   2.10 s  result=0  github:agalwood/Motrix
+     64.5 MB   2.43 s  result=0  github:memstechtips/Winhance
+     64.4 MB   2.13 s  result=0  choco:kubernetes-helm
+     62.6 MB   2.02 s  result=0  github:devhubapp/devhub
+     62.2 MB   1.99 s  result=0  github:agalwood/Motrix
+[v33final3] mem peak after large files: 603 MiB  oom_kill: oom_kill 0
+[v33final3] memory.stat now (anon = process memory, file = reclaimable page cache):  [v33final3] memory.stat now (anon = process memory, file = reclaimable page cache): anon 189743104
+file 172797952
+kernel 9633792
+kernel_stack 65536
+pagetables 1728512
 sec_pagetables 0
-percpu 27552
+percpu 27360
 sock 0
 vmalloc 16384
 shmem 0
 zswap 0
 zswapped 0
-file_mapped 5607424
+file_mapped 50229248
 file_dirty 0
 file_writeback 0
 swapcached 0
-anon_thp 180355072
+anon_thp 12582912
 file_thp 0
 shmem_thp 0
 inactive_anon 0
-active_anon 423915520
-inactive_file 18497536
-active_file 61116416
+active_anon 192389120
+inactive_file 31928320
+active_file 140877824
 unevictable 0
-slab_reclaimable 2335144
-slab_unreclaimable 1648384
-slab 3983528
+slab_reclaimable 6511664
+slab_unreclaimable 1255064
+slab 7766728
 workingset_refault_anon 0
-workingset_refault_file 21244
+workingset_refault_file 0
 workingset_activate_anon 0
-workingset_activate_file 14873
+workingset_activate_file 0
 workingset_restore_anon 0
-workingset_restore_file 8
+workingset_restore_file 0
 workingset_nodereclaim 0
 pgdemote_kswapd 0
 pgdemote_direct 0
 pgdemote_khugepaged 0
 pgdemote_proactive 0
-pgscan 1860
-pgsteal 1860
+pgscan 0
+pgsteal 0
 pswpin 0
 pswpout 0
 pgscan_kswapd 0
-pgscan_direct 1860
+pgscan_direct 0
 pgscan_khugepaged 0
 pgscan_proactive 0
 pgsteal_kswapd 0
-pgsteal_direct 1860
+pgsteal_direct 0
 pgsteal_khugepaged 0
 pgsteal_proactive 0
-pgfault 164642
-pgmajfault 91
-pgrefill 58
+pgfault 276913
+pgmajfault 188
+pgrefill 0
 pgactivate 0
 pgdeactivate 0
 pglazyfree 0
@@ -74,62 +74,62 @@ swpout_zero 0
 zswpin 0
 zswpout 0
 zswpwb 0
-thp_fault_alloc 2513
+thp_fault_alloc 2296
 thp_collapse_alloc 0
 thp_swpout 0
-thp_swpout_fallback 0 [v33final2] memory.stat now (anon = process memory, file = reclaimable page cache): anon 421052416
-file 79601664
-kernel 7081984
-kernel_stack 81920
-pagetables 2932736
+thp_swpout_fallback 0 [v33final3] memory.stat now (anon = process memory, file = reclaimable page cache): anon 187650048
+file 172797952
+kernel 9609216
+kernel_stack 65536
+pagetables 1703936
 sec_pagetables 0
-percpu 27552
+percpu 27360
 sock 0
 vmalloc 16384
 shmem 0
 zswap 0
 zswapped 0
-file_mapped 5607424
+file_mapped 50229248
 file_dirty 0
 file_writeback 0
 swapcached 0
-anon_thp 180355072
+anon_thp 10485760
 file_thp 0
 shmem_thp 0
 inactive_anon 0
-active_anon 424169472
-inactive_file 18497536
-active_file 61116416
+active_anon 190291968
+inactive_file 31928320
+active_file 140877824
 unevictable 0
-slab_reclaimable 2332648
-slab_unreclaimable 1649864
-slab 3982512
+slab_reclaimable 6512088
+slab_unreclaimable 1255480
+slab 7767568
 workingset_refault_anon 0
-workingset_refault_file 21244
+workingset_refault_file 0
 workingset_activate_anon 0
-workingset_activate_file 14873
+workingset_activate_file 0
 workingset_restore_anon 0
-workingset_restore_file 8
+workingset_restore_file 0
 workingset_nodereclaim 0
 pgdemote_kswapd 0
 pgdemote_direct 0
 pgdemote_khugepaged 0
 pgdemote_proactive 0
-pgscan 1860
-pgsteal 1860
+pgscan 0
+pgsteal 0
 pswpin 0
 pswpout 0
 pgscan_kswapd 0
-pgscan_direct 1860
+pgscan_direct 0
 pgscan_khugepaged 0
 pgscan_proactive 0
 pgsteal_kswapd 0
-pgsteal_direct 1860
+pgsteal_direct 0
 pgsteal_khugepaged 0
 pgsteal_proactive 0
-pgfault 165939
-pgmajfault 91
-pgrefill 58
+pgfault 278214
+pgmajfault 188
+pgrefill 0
 pgactivate 0
 pgdeactivate 0
 pglazyfree 0
@@ -139,11 +139,11 @@ swpout_zero 0
 zswpin 0
 zswpout 0
 zswpwb 0
-thp_fault_alloc 2515
+thp_fault_alloc 2297
 thp_collapse_alloc 0
 thp_swpout 0
 thp_swpout_fallback 0
-[v33final2] anon memory while scoring the largest file: max 952 MiB over 13 samples
-[v33final2] malformed input -> {"result": 1}
-[v33final2] error lines in container log: 0
-[v33final2] gate exit code: 0 (wall 23s)
+[v33final3] anon memory while scoring the largest file 3x (20 ms in-container sampler): max 410 MiB  idle now: 184 MiB
+[v33final3] malformed input -> {"result": 1}
+[v33final3] error lines in container log: 0
+[v33final3] gate exit code: 0 (wall 27s)

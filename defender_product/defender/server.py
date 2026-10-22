@@ -37,6 +37,13 @@ MAX_DRAIN_BYTES = int(os.environ.get("DF_MAX_DRAIN_BYTES", 256 * 1024 * 1024))
 REQUEST_BUDGET_SECONDS = float(os.environ.get("DF_REQUEST_BUDGET_SECONDS", 4.0))
 WORKERS = int(os.environ.get("DF_WORKERS", 2))
 WORKER_MODE = os.environ.get("DF_WORKER_MODE", "process")   # 'process' (killable) or 'thread'
+# Bodies up to this size are read fully in this process before a worker is reserved, so
+# a stalled or slow small upload never holds the (single) worker; larger bodies are
+# streamed straight into the worker to keep this process's memory flat.
+STREAM_THRESHOLD = int(os.environ.get("DF_STREAM_THRESHOLD", 8 * 1024 * 1024))
+# Idle keep-alive sockets wait this long for the next request line; the request budget
+# starts only once a request's headers are in.
+KEEPALIVE_IDLE_SECONDS = float(os.environ.get("DF_KEEPALIVE_IDLE_SECONDS", 60.0))
 OCTET_STREAM = "application/octet-stream"
 
 
@@ -120,8 +127,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def setup(self) -> None:
         super().setup()
-        # Request line / headers must arrive within the budget too (stalled clients).
-        self.connection.settimeout(self.defender.budget_seconds)
+        # Between requests a keep-alive socket may idle; a request line, once started, is
+        # read under this timeout too (a slow-loris holds a handler thread, never a worker).
+        self.connection.settimeout(KEEPALIVE_IDLE_SECONDS)
 
     def log_message(self, fmt: str, *args: Any) -> None:  # quieter default logging
         pass
@@ -174,18 +182,40 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._respond(200, {"result": 1})
             return
 
-        # The body is streamed from the client socket straight into the inference worker;
-        # this process never holds the whole sample (memory headroom under the 1 GiB cap).
+        consumed = 0
+
         def reader(n: int) -> bytes:
+            nonlocal consumed
             budget = deadline - time.monotonic()
             if budget <= 0:
                 return b""
             self.connection.settimeout(budget)
-            return self.rfile.read(n)
+            # read1: at most ONE underlying recv, so a client dripping bytes cannot stretch
+            # the request past its deadline (rfile.read(n) would loop per byte with the
+            # timeout applied to each recv; verification 2026-10-22)
+            chunk = self.rfile.read1(n)
+            consumed += len(chunk)
+            return chunk
 
-        result, reason = self.defender.classify_stream(reader, length, deadline)
-        if reason in ("slow_upload", "saturated"):
-            # the socket may still hold (part of) the body; we will not wait for it
+        if length <= STREAM_THRESHOLD:
+            # Small body: buffer it here first, so the worker is reserved only for inference
+            # and a stalled client cannot hold it (single-flight images, DF_WORKERS=1).
+            bytez = self._read_exactly(length, deadline)
+            consumed = length if bytez is not None else consumed
+            if bytez is None:
+                result, reason = 1, "slow_upload"
+            else:
+                result, reason = self.defender.classify(bytez, deadline)
+                del bytez
+        else:
+            # Large body: streamed from the client socket straight into the worker; this
+            # process never holds a whole sample (memory headroom under the 1 GiB cap).
+            result, reason = self.defender.classify_stream(reader, length, deadline)
+        if reason in ("slow_upload", "saturated", "overrun", "worker_failed"):
+            # Part of the body may still be in flight. Drain what we can inside the deadline
+            # so the client reads our answer instead of a reset, then close.
+            if reason != "slow_upload":
+                self._drain(length - consumed, deadline)
             self.close_connection = True
         self.defender.record(result, reason)
         log("classified" if reason == "scored" else reason, result=result, reason=reason,
@@ -193,7 +223,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._respond(200, {"result": result})
 
     def _drain(self, length: int, deadline: float) -> bool:
-        """Discard an oversized body in bounded chunks so the reply still gets through."""
+        """Discard up to ``length`` body bytes in bounded chunks, inside the deadline, so the
+        reply still gets through (oversize bodies; unread remainders after a refusal)."""
+        if length <= 0:
+            return True
         if length > MAX_DRAIN_BYTES:
             return False
         remaining = length
@@ -203,7 +236,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return False
             self.connection.settimeout(budget)
             try:
-                chunk = self.rfile.read(min(remaining, 1 << 20))
+                chunk = self.rfile.read1(min(remaining, 1 << 20))
             except (socket.timeout, OSError):
                 return False
             if not chunk:
@@ -219,7 +252,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return None
             self.connection.settimeout(budget)
             try:
-                chunk = self.rfile.read(min(remaining, 1 << 20))
+                chunk = self.rfile.read1(min(remaining, 1 << 20))
             except (socket.timeout, OSError):
                 return None
             if not chunk:

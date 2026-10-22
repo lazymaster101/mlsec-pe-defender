@@ -10,8 +10,9 @@ releases, locally installed software, the course samples): 0 hits. Training malw
 narrow, and trivially evaded by obfuscating the string, so it only ever ADDS detections
 on top of the ML fusion and never clears a file.
 
-The scan is linear and cheap: a lowercase copy and bytes.find for "powershell" (ASCII
-and UTF-16LE), then the two option checks inside a +/-512-byte window around each hit.
+The scan is linear and cheap: bytes.find for the common spellings of "powershell"
+(ASCII and UTF-16LE, no copy of the body), then the two option checks inside a
++/-512-byte window around each hit.
 Nothing is decoded, parsed or executed.
 """
 from __future__ import annotations
@@ -20,7 +21,12 @@ import re
 _SEP = r"[\"',\s]{1,6}"
 _BYPASS = re.compile(r"-e(?:xecutionpolicy|xec|p|x)?" + _SEP + r"bypass", re.IGNORECASE)
 _HIDDEN = re.compile(r"-w(?:indowstyle)?" + _SEP + r"(?:hidden|1\b)", re.IGNORECASE)
-_NEEDLES = ((b"powershell", "latin-1"), ("powershell".encode("utf-16le"), "utf-16le"))
+# Case variants searched WITHOUT a lowercase copy of the body (a 64 MB copy was a
+# measurable share of the per-request memory transient). The leading p/P is left out of
+# the needle so both cases match; mixed-case spellings beyond these are obfuscation and
+# outside this signature's scope.
+_NEEDLES = tuple((n, "latin-1") for n in (b"owershell", b"owerShell", b"OWERSHELL")) + \
+           tuple((n.encode("utf-16le"), "utf-16le") for n in ("owershell", "owerShell", "OWERSHELL"))
 _WINDOW = 512
 _MAX_HITS = 200
 
@@ -32,17 +38,16 @@ def _windows(bytez: bytes):
     case-insensitive regex over the whole buffer cost 2.5 s, which is a real share of
     the 4 s request budget on the largest benign installers.
     """
-    low = bytez.lower()  # only ASCII letters change, so the UTF-16LE needle still matches
     n = 0
     for needle, enc in _NEEDLES:
-        pos = low.find(needle)
+        pos = bytez.find(needle)
         while pos != -1:
             lo, hi = max(0, pos - _WINDOW), min(len(bytez), pos + len(needle) + _WINDOW)
             yield bytez[lo:hi].decode(enc, "ignore")
             n += 1
             if n >= _MAX_HITS:
                 return
-            pos = low.find(needle, pos + len(needle))
+            pos = bytez.find(needle, pos + len(needle))
 
 
 def embedded_powershell_bypass(bytez: bytes) -> str | None:

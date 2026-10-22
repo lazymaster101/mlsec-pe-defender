@@ -1,0 +1,6 @@
+zip:  43M 120520242                     34 files
+zip entries clean
+image mlsec-defender:v33-fromzip built from the zip alone
+ serving modules: 12
+ember_ft_v33 ember_gbdt fusion_v33.json rf_adv 
+from-zip image serves: 7z.exe -> {"result": 0} ; workers: process 1 4.5

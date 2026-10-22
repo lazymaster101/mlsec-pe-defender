@@ -105,3 +105,59 @@ class ThreadPoolFallbackTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RegressionsFromVerification(unittest.TestCase):
+    """Defects found by the 2026-10-22 verification of the first worker implementation."""
+
+    def test_idle_worker_does_not_exit_after_the_reply_timeout(self):
+        # the reply path used to leave a timeout on the socket; the idle recv then timed
+        # out after REPLY_TIMEOUT and the child exited, so the next request got
+        # 'worker_failed' (answered 1 without scoring)
+        from defender import workers as W
+        old = W.REPLY_TIMEOUT
+        W.REPLY_TIMEOUT = 0.3
+        try:
+            pool = WorkerPool(scorer, n_workers=1, mode="process", warmup=b"warm")
+            try:
+                self.assertEqual(pool.classify(b"benign", time.monotonic() + 2), (0, "scored"))
+                time.sleep(1.0)                                  # idle well past the old timeout
+                self.assertEqual(pool.classify(b"benign", time.monotonic() + 2), (0, "scored"))
+                self.assertEqual(pool.stats()["died"], 0)
+            finally:
+                pool.close()
+        finally:
+            W.REPLY_TIMEOUT = old
+
+    def test_worker_is_recycled_after_a_large_body_without_losing_the_request(self):
+        from defender import workers as W
+        old = W.RECYCLE_BODY_BYTES
+        W.RECYCLE_BODY_BYTES = 1000
+        try:
+            pool = WorkerPool(scorer, n_workers=1, mode="process", warmup=b"warm")
+            try:
+                self.assertEqual(pool.classify(b"benign" + b"\x00" * 2000, time.monotonic() + 2), (0, "scored"))
+                self.assertEqual(pool.stats()["recycled"], 1)
+                self.assertTrue(wait_live(pool, 1))
+                self.assertEqual(pool.classify(b"benign", time.monotonic() + 2), (0, "scored"))
+            finally:
+                pool.close()
+        finally:
+            W.RECYCLE_BODY_BYTES = old
+
+    def test_worker_is_recycled_after_max_requests(self):
+        from defender import workers as W
+        old = W.MAX_REQUESTS_PER_WORKER
+        W.MAX_REQUESTS_PER_WORKER = 3
+        try:
+            pool = WorkerPool(scorer, n_workers=1, mode="process", warmup=b"warm")
+            try:
+                for _ in range(7):
+                    self.assertEqual(pool.classify(b"benign", time.monotonic() + 3), (0, "scored"))
+                    self.assertTrue(wait_live(pool, 1))
+                self.assertGreaterEqual(pool.stats()["recycled"], 2)
+                self.assertEqual(pool.stats()["died"], 0)
+            finally:
+                pool.close()
+        finally:
+            W.MAX_REQUESTS_PER_WORKER = old

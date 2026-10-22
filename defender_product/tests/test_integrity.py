@@ -48,6 +48,12 @@ class ManifestTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             Model(tmp, "training")
 
+    def test_missing_manifest_is_refused(self):
+        tmp = self._copy()
+        os.remove(os.path.join(tmp, "manifest.json"))
+        with self.assertRaises(ValueError):
+            Model(tmp, "training")
+
     def test_skip_switch_is_explicit_and_reported(self):
         tmp = self._copy()
         with open(os.path.join(tmp, "tree_roots.npy"), "r+b") as fh:

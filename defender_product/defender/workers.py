@@ -38,6 +38,10 @@ from typing import Callable, Optional
 
 _HEADER = struct.Struct("!Q")
 WARMUP_BYTES = b"MZ" + b"\x00" * 128
+REPLY_TIMEOUT = 30.0          # child -> parent reply and warm-up round trip
+MAX_REQUESTS_PER_WORKER = 50  # recycle the worker after this many requests ...
+RECYCLE_BODY_BYTES = 8 << 20  # ... or after one body this large (heap fragmentation)
+RESPAWN_ATTEMPTS = 5
 
 
 def _send_frame(sock: socket.socket, payload: bytes, deadline: float) -> None:
@@ -50,10 +54,14 @@ def _send_frame(sock: socket.socket, payload: bytes, deadline: float) -> None:
 
 def _recv_exact(sock: socket.socket, n: int, deadline: Optional[float]) -> bytes:
     """Receive exactly n bytes into ONE preallocated buffer (a 64 MB body costs one copy,
-    not a chunk list plus a join)."""
+    not a chunk list plus a join). ``deadline=None`` means block indefinitely: the timeout
+    is reset explicitly because an earlier send on the same socket left one behind
+    (verification 2026-10-22: idle workers were timing out after 30 s and exiting)."""
     buf = bytearray(n)
     view = memoryview(buf)
     got = 0
+    if deadline is None:
+        sock.settimeout(None)
     while got < n:
         if deadline is not None:
             remaining = deadline - time.monotonic()
@@ -73,9 +81,38 @@ def _recv_frame(sock: socket.socket, deadline: Optional[float]) -> bytes:
 
 
 def _child_loop(sock: socket.socket, parent_end: socket.socket, score_fn: Callable[[bytes], int]) -> None:
-    """Runs in the child: read a body, score it, reply; repeat until the parent goes away."""
+    """Runs in the child: read a body, score it, reply; repeat until the parent goes away
+    or the worker asks to be recycled (its reply then carries retire=True and it exits
+    after sending; the parent replaces it without losing a request)."""
     parent_end.close()            # inherited across fork; the child must not hold the parent's end
-    sock.settimeout(None)
+    _close_inherited_sockets(keep=sock.fileno())
+    served = 0
+    try:
+        _serve_loop(sock, score_fn)
+    finally:
+        sock.close()
+
+
+def _close_inherited_sockets(keep: int) -> None:
+    """Linux: a forked worker inherits the listening socket and any in-flight client
+    sockets; close them so they are not held open until the worker dies."""
+    fd_dir = "/proc/self/fd"
+    if not os.path.isdir(fd_dir):
+        return
+    import stat
+    for name in os.listdir(fd_dir):
+        try:
+            fd = int(name)
+            if fd <= 2 or fd == keep:
+                continue
+            if stat.S_ISSOCK(os.fstat(fd).st_mode):
+                os.close(fd)
+        except OSError:
+            pass
+
+
+def _serve_loop(sock: socket.socket, score_fn: Callable[[bytes], int]) -> None:
+    served = 0
     while True:
         try:
             body = _recv_frame(sock, None)
@@ -83,15 +120,21 @@ def _child_loop(sock: socket.socket, parent_end: socket.socket, score_fn: Callab
             return
         if isinstance(body, bytearray):
             body = bytes(body)        # one copy; the bytearray is released at the rebind
+        size = len(body)
         try:
             result, reason = int(score_fn(body)), "scored"
             if result not in (0, 1):
                 result, reason = 1, "invalid_result"
         except Exception as error:                     # malformed PE, parser rejection
             result, reason = 1, "unparseable:" + type(error).__name__
+        del body
+        served += 1
+        retire = served >= MAX_REQUESTS_PER_WORKER or size >= RECYCLE_BODY_BYTES
         try:
-            _send_frame(sock, json.dumps([result, reason]).encode(), time.monotonic() + 30.0)
+            _send_frame(sock, json.dumps([result, reason, retire]).encode(), time.monotonic() + REPLY_TIMEOUT)
         except OSError:
+            return
+        if retire:
             return
 
 
@@ -135,7 +178,7 @@ class WorkerPool:
         self._idle: "queue.Queue[_Worker]" = queue.Queue()
         self._lock = threading.Lock()
         self._live: set[_Worker] = set()
-        self._stats = {"spawned": 0, "killed_overrun": 0, "died": 0}
+        self._stats = {"spawned": 0, "killed_overrun": 0, "died": 0, "recycled": 0, "respawn_failed": 0}
         if mode == "process":
             self._ctx = multiprocessing.get_context("fork")
             for _ in range(self.n_workers):
@@ -148,24 +191,39 @@ class WorkerPool:
 
     # -- process mode ------------------------------------------------------------------
     def _spawn(self, block: bool) -> None:
-        parent_sock, child_sock = socket.socketpair()
-        process = self._ctx.Process(target=_child_loop, args=(child_sock, parent_sock, self._score_fn), daemon=True)
-        process.start()
-        child_sock.close()
-        worker = _Worker(process, parent_sock)
+        """Fork one worker and warm it up. In the background (block=False) failures are
+        retried with backoff; in the foreground (startup) they raise."""
+        last: Optional[BaseException] = None
+        for attempt in range(1 if block else RESPAWN_ATTEMPTS):
+            try:
+                parent_sock, child_sock = socket.socketpair()
+                process = self._ctx.Process(target=_child_loop, args=(child_sock, parent_sock, self._score_fn), daemon=True)
+                process.start()
+                child_sock.close()
+            except Exception as error:               # fork/EAGAIN, fd exhaustion
+                last = error
+                time.sleep(0.2 * (attempt + 1))
+                continue
+            worker = _Worker(process, parent_sock)
+            with self._lock:
+                self._live.add(worker)
+                self._stats["spawned"] += 1
+            if self._warmup is not None:
+                try:  # first prediction pays import / page-fault / thread-pool costs; do it off the request path
+                    _send_frame(worker.sock, self._warmup, time.monotonic() + REPLY_TIMEOUT)
+                    _recv_frame(worker.sock, time.monotonic() + REPLY_TIMEOUT)
+                except (OSError, EOFError) as error:
+                    last = error
+                    self._retire(worker, "died")
+                    worker.reap()
+                    time.sleep(0.2 * (attempt + 1))
+                    continue
+            self._idle.put(worker)
+            return
         with self._lock:
-            self._live.add(worker)
-            self._stats["spawned"] += 1
-        if self._warmup is not None:
-            try:  # first prediction pays import / page-fault / thread-pool costs; do it off the request path
-                _send_frame(worker.sock, self._warmup, time.monotonic() + 30.0)
-                _recv_frame(worker.sock, time.monotonic() + 30.0)
-            except (OSError, EOFError):
-                self._retire(worker, "died")
-                if block:
-                    raise RuntimeError("inference worker failed its warm-up")
-                return
-        self._idle.put(worker)
+            self._stats["respawn_failed"] += 1
+        if block:
+            raise RuntimeError(f"inference worker failed to start: {last!r}")
 
     def _spawn_async(self, reap: Optional[_Worker] = None) -> None:
         def run() -> None:
@@ -177,7 +235,7 @@ class WorkerPool:
     def _retire(self, worker: _Worker, why: str) -> None:
         with self._lock:
             self._live.discard(worker)
-            self._stats["killed_overrun" if why == "overrun" else "died"] += 1
+            self._stats[{"overrun": "killed_overrun", "recycled": "recycled"}.get(why, "died")] += 1
         worker.kill()
 
     def classify(self, body: bytes, deadline: float) -> tuple[int, str]:
@@ -242,12 +300,24 @@ class WorkerPool:
             self._retire(worker, "died")
             self._spawn_async(reap=worker)
             return 1, "worker_failed"
-        self._idle.put(worker)
+        except BaseException:                 # never leak a worker out of the pool
+            self._retire(worker, "died")
+            self._spawn_async(reap=worker)
+            raise
         try:
-            result, reason = json.loads(bytes(reply))
-            return int(result), str(reason)
-        except (ValueError, TypeError):
+            decoded = json.loads(bytes(reply))
+            result, reason = int(decoded[0]), str(decoded[1])
+            retire = bool(decoded[2]) if len(decoded) > 2 else False
+        except (ValueError, TypeError, IndexError):
+            self._retire(worker, "died")
+            self._spawn_async(reap=worker)
             return 1, "invalid_reply"
+        if retire:                            # the child exits after this reply: replace it now
+            self._retire(worker, "recycled")
+            self._spawn_async(reap=worker)
+        else:
+            self._idle.put(worker)
+        return result, reason
 
     # -- thread mode (fallback; cannot interrupt native calls) -------------------------
     def _classify_thread(self, body: bytes, deadline: float) -> tuple[int, str]:

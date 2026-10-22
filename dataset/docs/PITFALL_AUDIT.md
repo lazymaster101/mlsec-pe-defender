@@ -91,7 +91,7 @@ that Lucas et al. contrast with attack-based training on real binaries, not that
 with **held-out donors**, at the **deployed threshold**, with Wilson CIs — the trained
 attacks are far harder: combined attack C **7 % → 55 %** (CIs [5-10] vs [51-60],
 non-overlapping) and packing E **21 % → 76 %**. Two honest limits, from the same table:
-(1) an *untrained* realizable mechanism, section-injection (F), does **not** improve
+(1) an *untrained* mechanism (intended as realizable, unverified), section-injection (F), does **not** improve
 (59 % → 58 %) — no transfer to unseen mechanisms; (2) the full feature-mimicry upper
 bound (D) leaves both models ~99 % evaded. Clean cost: 2.8 pt EMBER TPR, ~7.6 pt
 held-out recent. So this is in-distribution robustness to the trained attack families

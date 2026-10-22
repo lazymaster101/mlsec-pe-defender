@@ -71,24 +71,29 @@ def score_over_http(paths: list[pathlib.Path], url: str, deadline: float = DEADL
     separately as operational errors."""
     parts = urllib.parse.urlparse(url)
     for path in paths:
-        body = path.read_bytes()
         started = time.perf_counter()
-        connection = http.client.HTTPConnection(parts.hostname, parts.port or 80, timeout=deadline)
         error = None
         payload: dict = {}
+        status = None
         try:
-            connection.request("POST", "/", body=body,
-                               headers={"Content-Type": "application/octet-stream"})
-            response = connection.getresponse()
-            raw = response.read()
-            payload = json.loads(raw)
-        except Exception as exc:                     # timeout, reset, refused, bad JSON
+            body = path.read_bytes()
+            connection = http.client.HTTPConnection(parts.hostname, parts.port or 80, timeout=deadline)
+            try:
+                connection.request("POST", "/", body=body,
+                                   headers={"Content-Type": "application/octet-stream"})
+                response = connection.getresponse()
+                status = response.status
+                raw = response.read()
+                payload = json.loads(raw)
+            finally:
+                connection.close()
+        except Exception as exc:                     # unreadable file, timeout, reset, refused, bad JSON
             error = f"{type(exc).__name__}: {exc}"[:120]
-        finally:
-            connection.close()
         elapsed = time.perf_counter() - started
         result = payload.get("result") if isinstance(payload, dict) else None
-        if error is None and result not in (0, 1):
+        if error is None and status != 200:
+            error = f"HTTP {status}"
+        if error is None and (type(result) is not int or result not in (0, 1)):   # booleans are not answers
             error = f"malformed response: {str(payload)[:60]}"
         if error is None and elapsed > deadline:
             error = f"late: {elapsed:.3f}s > {deadline:.1f}s"

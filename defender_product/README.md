@@ -117,7 +117,9 @@ model's pickle, and the deployed `rf_adv` uses the same export/runtime path):
   0.3–8.9 %; 0/140 on the recent goodware it was trained on, which must not be pooled
   in); 0/7 on the classic goodware spot check.
 * **EMBER temporal TPR @ 1 % FPR = 76.7 %** (`rf_augmented` 79.5 %, supplied 71.2 %).
-  The **≥ 95 % TPR goal is not reachable** in the NFS feature space (§6 of the report).
+  The ≥ 95 % TPR goal was **not reached by any NFS-feature model tried** (one RF family
+  and one aborted LightGBM run, §6 of the report); whether the feature space itself
+  forbids it is not established.
 * **Held-out recent-malware detection 59 %** for `rf_adv` (254/433; the clean
   `rf_augmented` 66 %; supplied ~9 %; 53 % on the 349 rows without a feature-identical
   training twin), and **55 %** under a cheap synthetic feature-space perturbation (clean
@@ -156,15 +158,13 @@ ordinary goodware. This image therefore defaults to `DF_FEATURE_MODE=training`.
 
 ## Configuration
 
-| Variable                   | Default          | Meaning                                        |
-|----------------------------|------------------|------------------------------------------------|
 | Variable | Image (`Dockerfile`) | Code default | Meaning |
 |---|---|---|---|
 | `DF_MODEL_DIR`             | `/app/models/rf_adv` | `models/nfs` | directory of exported arrays (manifest digests verified at load) |
 | `DF_MALWARE_THRESHOLD`     | `0.820932` | `0.25` | malicious when `P(malware) > threshold` |
 | `DF_FEATURE_MODE`          | `training` | `training` | `training` or `legacy` (see above) |
 | `DF_PORT` / `DF_HOST`      | `8080` / `0.0.0.0` | same | listen address |
-| `DF_WORKERS`               | `2` | `2` | inference worker processes; also the admission bound |
+| `DF_WORKERS`               | `1` | `2` | inference worker processes; also the admission bound (one in the images: a 67 MB file's transient is the whole budget, see REVIEW_RESPONSE) |
 | `DF_WORKER_MODE`           | `process` | `process` | `process` = forked, killable workers; `thread` = legacy pool that cannot interrupt native calls (logged as a warning; never used in the images) |
 | `DF_REQUEST_BUDGET_SECONDS`| `4.5` | `4.0` | total budget from headers-in to answer: body read + wait for a worker + inference; anything that cannot finish is answered `1` |
 | `DF_MAX_BODY_BYTES`        | `67108864` | same | larger bodies are drained and answered `1` |
@@ -190,9 +190,15 @@ returns a decision inside the budget rather than an error:
 * body over `DF_MAX_BODY_BYTES` → drained without buffering, then `1`
 
 `DF_REQUEST_BUDGET_SECONDS` is counted from the moment the request headers are in and
-covers body read, worker wait and inference; the request body is streamed from the
-client socket into the worker, so this process never holds a whole sample. What the
-server cannot control is time spent before the headers arrive. All of this replaced the
+covers body read, worker wait and inference. Bodies up to `DF_STREAM_THRESHOLD` (8 MiB)
+are read here before a worker is reserved; larger ones are streamed from the client
+socket into the worker, so this process never holds a whole large sample. What the
+server cannot control is time spent before the headers arrive. **The images are
+single-flight** (`DF_WORKERS=1`): a second request arriving while the worker is busy
+waits up to its own budget and is answered `1` (`saturated`) only if the worker is still
+busy then; the course-set files score in well under 100 ms, so that wait is never reached
+by a sequential grader. Idle keep-alive connections are kept for `DF_KEEPALIVE_IDLE_SECONDS`
+(60 s) between requests. All of this replaced the
 earlier thread pool, whose timeouts abandoned the caller but not the work (review
 2026-09-21, finding 2; `tests/test_workers.py`, `tests/test_server_deadlines.py`).
 

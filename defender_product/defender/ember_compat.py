@@ -40,6 +40,24 @@ def _pe_raw_features(self, bytez, lief_binary=_UNSET):
     return features
 
 
+_HIST_CHUNK = 4 << 20
+
+
+def _bytehistogram_raw(self, bytez, lief_binary):
+    """EMBER ByteHistogram.raw_features with identical output and a bounded transient.
+
+    np.bincount casts its input to the platform integer, so the original
+    bincount(frombuffer(bytez, uint8)) allocated 8 bytes per input byte (509 MiB for a
+    67 MB file: the single largest share of the per-request memory; verification
+    2026-10-22). Summing bincounts over 4 MiB chunks gives the same integer counts with a
+    32 MiB transient."""
+    view = np.frombuffer(bytez, dtype=np.uint8)
+    counts = np.zeros(256, dtype=np.int64)
+    for start in range(0, view.size, _HIST_CHUNK):
+        counts += np.bincount(view[start:start + _HIST_CHUNK], minlength=256)
+    return counts.tolist()
+
+
 def _strings_raw(self, bytez, lief_binary):
     """EMBER StringExtractor.raw_features with identical output, faster and memory-lean.
 
@@ -140,6 +158,7 @@ def _section_process(self, raw_obj):
 
 def apply():
     _f.PEFeatureExtractor.raw_features = _pe_raw_features
+    _f.ByteHistogram.raw_features = _bytehistogram_raw
     _f.ByteEntropyHistogram.raw_features = _byteentropy_raw
     _f.StringExtractor.raw_features = _strings_raw
     _f.SectionInfo.raw_features = _section_raw

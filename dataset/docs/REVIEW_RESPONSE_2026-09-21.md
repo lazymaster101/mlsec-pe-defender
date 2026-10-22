@@ -1,5 +1,12 @@
 # Response to the independent verification of 2026-09-21
 
+*Last edited 2026-10-22. Refers to images `mlsec-defender:v33` (arm64, id aedfdc7085b8…) and
+`mlsec-defender:v33-amd64` (id 43716ef66a14…), built from `defender_product/Dockerfile.ensemble` at the
+tip of `release/sure-shot-v3.1`, and to `mlsec-defender-submission-v33.zip` (sha256 08440fb2f35e2caecba38b089e4e38139b2d4a5b4b2336ac179343dd077ad699),
+produced by `dataset/tools/package_submission.sh v33`, which starts the image built from the zip
+and requires it to serve before reporting success. The zip packaged on 2026-10-21 lacked
+`defender/workers.py` and its image could not start; that zip was replaced on 2026-10-22.*
+
 Reviewed on 2026-10-21 against the tree as it stood that day (v3.3 shipped). Each finding
 was first reproduced on the current code and artifacts by an independent agent run
 (`dataset/results/review_response_reproductions.json`), then fixed. "Reproduced" below
@@ -7,18 +14,22 @@ means the defect existed in the current tree, not only in the September evidence
 
 | # | Finding | Reproduced | Fix | Verified by |
 |---|---|---|---|---|
-| 1 | `rf_adv`'s 0.820932 threshold was chosen on the EMBER *test* file; docs called 1 % FPR "by construction" / "held-out" | **Yes, bit-for-bit**: re-scoring all 200k test rows gives FPR 1,051/100,000 = 1.051 % (Wilson 0.990–1.116 %), TPR 76,728/100,000 = 76.73 %; 751/70,000 = 1.073 % outside the 30k calibration subsample; `operating_point.json` names `test.jsonl` | Documentation corrected everywhere the claim appeared (COMPARISON_REPORT §8, PITFALL_AUDIT P5, README). `package_model.py` now refuses a calibration file named like a test set unless `--allow-test-calibration`, and records that the result is an empirical calibration. The single-model image keeps 0.820932 and now states what it is. The submitted v3.3 ensemble never used this threshold: its fusion thresholds are set on fit folds and reported by grouped CV and a sealed holdout. | reproduction script re-run; doc audit |
-| 2 | Server did not enforce its deadline: thread-pool timeout abandoned the caller, not the work (10 of 12 timed-out jobs stayed queued with their buffers); body read had no socket deadline (a 2-of-4-byte upload got no answer); a native call holding the GIL ran 6.0 s and returned "scored" | **Yes** on the old code (6.00 s, 10 queued, no answer after 6 s) | `defender/workers.py` + rewritten `defender/server.py`: inference runs in **forked worker processes** that are **SIGKILLed at the deadline and replaced**; admission is bounded by the worker count and a request waits at most until its own deadline (`saturated`); the body is read under a socket deadline and **streamed into the worker** (no buffer outlives its request); the budget covers read + wait + inference; the parent never runs the models (OpenMP-safe fork). Thread mode remains only as a logged, non-compliant fallback; both images set `DF_WORKER_MODE=process`, `DF_REQUEST_BUDGET_SECONDS=4.5`. | `tests/test_workers.py` (overrun kill + respawn, GIL-holding native sleep, crash recovery, saturation, no retained buffers), `tests/test_server_deadlines.py` (stalled upload answered in 1.0 s, overrun answered in budget, recovery), `tests/test_entrypoints.py` (both module entry points start); container probe: stalled upload → `{"result": 1}` at 4.51 s; gate 50/50, peak 942 MiB, no OOM |
+| 1 | `rf_adv`'s 0.820932 threshold was chosen on the EMBER *test* file; docs called 1 % FPR "by construction" / "held-out" | **Yes, bit-for-bit**: re-scoring all 200k test rows gives FPR 1,051/100,000 = 1.051 % (Wilson 0.990–1.116 %), TPR 76,728/100,000 = 76.73 %; 751/70,000 = 1.073 % outside the 30k calibration subsample; `operating_point.json` names `test.jsonl` | Documentation corrected everywhere the claim appeared (COMPARISON_REPORT §8, PITFALL_AUDIT P5, README). `package_model.py` now refuses a calibration file named like a test set unless `--allow-test-calibration` (a filename heuristic, no more), and new runs write a `note` into `operating_point.json`; the shipped `models/rf_adv/operating_point.json` was annotated by hand on 2026-10-22 (threshold unchanged; the file is not covered by the manifest). The single-model image keeps 0.820932 and now states what it is. The submitted v3.3 ensemble never used this threshold: its fusion thresholds are set on fit folds and reported by grouped CV and a sealed holdout. | reproduction script re-run; doc audit |
+| 2 | Server did not enforce its deadline: thread-pool timeout abandoned the caller, not the work (10 of 12 timed-out jobs stayed queued with their buffers); body read had no socket deadline (a 2-of-4-byte upload got no answer); a native call holding the GIL ran 6.0 s and returned "scored" | **Yes** on the old code (6.00 s, 10 queued, no answer after 6 s) | `defender/workers.py` + rewritten `defender/server.py`: inference runs in **forked worker processes** that are **SIGKILLed at the deadline and replaced**; admission is bounded by the worker count and a request waits at most until its own deadline (`saturated`); the body is read under a socket deadline and **streamed into the worker** (no buffer outlives its request); the budget covers read + wait + inference; the parent never runs the models (OpenMP-safe fork). Thread mode remains only as a logged, non-compliant fallback; both images set `DF_WORKER_MODE=process`, `DF_REQUEST_BUDGET_SECONDS=4.5`. | `tests/test_workers.py` (overrun kill + respawn, GIL-holding native sleep, crash recovery, saturation, no retained buffers), `tests/test_server_deadlines.py` (stalled upload answered in 1.0 s, overrun answered in budget, recovery), `tests/test_entrypoints.py` (both module entry points start); container probe: stalled upload → `{"result": 1}` at the budget (`reports/review-response-2026-10-21/stalled_upload_probe.log`); gates in the same folder (`container_gate_v33_final_*`). Two regressions in this fix were found and corrected the next day: see the re-verification section. |
 | 3 | "Functionality-preserving" / "Lucas fix" claims rest on feature-space attribute edits and random augmentation; no binary produced, validated or executed | **Yes**: `adv_transforms.py` produces no bytes; `train_nfs_adversarial.py` samples at random with no model query | Relabelled throughout (COMPARISON_REPORT §8–§10 + closing caveat, PITFALL_AUDIT P10/Part 2/Part 7, THREAT_MODEL §6–§8, DATASHEET, README, both tool docstrings): synthetic feature-space perturbations; random (unguided) augmentation, which Lucas et al. show is weaker than attack-based training; "realizable" = intended, unverified. The v3+ byte-level suite (`eval_robustness.py`) is described as structurally rebuilt but not executed. | doc audit |
-| 4 | HTTP evaluator credited answers that arrived after the 5 s limit (30 s timeout; late `1` counted as TP); transport failures aborted the run | **Yes** (mock server answering at 5.2 s counted as a detection) | `tools/evaluate.py`: `--deadline` (5.0 s); late, missing, malformed or transport-failed answers count against the detector (malware = miss, goodware = false positive), stay in the denominator, and are listed as operational errors; no abort. `grade_http.py`: 5 s deadline, a late answer is no answer. | mock-server reproduction re-run against the fixed tools |
-| 5 | Metric code: per-row ROC path mis-scored ties (two tied cross-class scores → AUC 0 or 1); operating point took a ranked score then applied strict `>` (perfect two-sample case → 0 % TPR); PR area omitted an endpoint | **Yes** on the toy cases; on real score dumps every stored headline was within +1 sample of the correct value and AUC within 0.006 | `evaluate_models.metrics` uses scikit-learn's tie-aware ROC-AUC and average precision; `threshold_for_fpr` picks the lowest strict-`>` cut directly; `package_model` shares it; `--dump-scores` added. All four stored comparisons were recomputed on the same rows (`dataset/tools/recompute_metrics.sh`; old files kept as `*.pre-review.json`). | counterexamples; before/after table below |
+| 4 | HTTP evaluator credited answers that arrived after the 5 s limit (30 s timeout; late `1` counted as TP); transport failures aborted the run | **Yes** (mock server answering at 5.2 s counted as a detection) | `tools/evaluate.py`: `--deadline` (5.0 s); late, missing, malformed or transport-failed answers count against the detector (malware = miss, goodware = false positive), stay in the denominator, and are listed as operational errors; no abort. `grade_http.py`: 5 s deadline, a late answer is no answer. Both tools accept only HTTP 200 with an integer 0/1 (booleans are not answers) and never abort on an unreadable file or a dropped connection. | `tests/test_evaluators.py`: mock server answering late, dropping, malformed JSON, a boolean, HTTP 500 — every sample stays in the denominator and counts against the detector |
+| 5 | Metric code: per-row ROC path mis-scored ties (two tied cross-class scores → AUC 0 or 1); operating point took a ranked score then applied strict `>` (perfect two-sample case → 0 % TPR); PR area omitted an endpoint | **Yes** on the toy cases; on real score dumps every stored headline was within +1 sample of the correct value and AUC within 0.006 | `evaluate_models.metrics` uses scikit-learn's tie-aware ROC-AUC and, under the unchanged key `pr_auc`, average precision (a different estimator from the former trapezoid); `threshold_for_fpr` picks the lowest strict-`>` cut directly; `package_model` shares it; `--dump-scores` added. All four stored comparisons were recomputed on the same rows (`dataset/tools/recompute_metrics.sh`; old files kept as `*.pre-review.json`). | `tests/test_metrics.py` (the review's counterexamples plus 100 random tied-score cases against scikit-learn and a brute-force threshold search); before/after table below |
 | 6 | Recent split: random within family, unparseable row dropped, 140 trained goodware pooled with 60 held-out when reporting 0.5 %; 84/433 test malware feature-identical to a training row | **Yes, exactly** (0 SHA overlap; 84 duplicates; 6/60 held-out benign also have twins; benign rows carry no date) | Documents now report held-out goodware separately (1/60 = 1.7 %, Wilson 0.3–8.9 %) and the novel-feature subset (186/349 = 53.3 % for `rf_adv`). `split_recent.py` gained `--group-duplicates`, `--temporal`, `--keep-unparseable`. **Not re-split**: a new split invalidates `rf_adv`, which is trained on the current one; the v3+ fusion fit already excludes the 84 duplicates. | counts re-derived from the split files |
-| 7 | README attributed the clean model's 66 % to `rf_adv` (58.66 %); config table showed `models/nfs`/0.25 vs the image's `rf_adv`/0.820932; "one env var away" while the image holds only `rf_adv` | **Yes** | README corrected (numbers, image-vs-code defaults table, switching instructions, test count). | doc audit |
-| 8 | "Richer features exceed the runtime budget" and "proven ceiling" unsupported; 99.99 % arithmetic wrong (correct ≈ 67.6 %) | **Yes** (exact hypergeometric 67.64 %; the EMBER-2381 member is served within budget in v3.3) | COMPARISON_REPORT §4 arithmetic corrected with an erratum; §6/§8 budget-exclusion claim replaced by the measured fact. | doc audit |
-| 9 | Tests covered the supplied model (`models/nfs`, 0.25), not the deployed configuration; no timeout/error-handling tests; `Model.__init__` did not check manifest digests | **Yes** | `Model` now verifies every manifest SHA-256 and size at load (`DF_SKIP_MANIFEST_VERIFY=1` to opt out, reported in `/model`); `tests/test_integrity.py`; deployed-configuration server test (`rf_adv`, 0.820932); deadline/worker/entry-point tests. Suite: **94 tests** (the commit message of 3b579be says 96; 94 is the measured count). | test run |
+| 7 | README attributed the clean model's 66 % to `rf_adv` (58.66 %); config table showed `models/nfs`/0.25 vs the image's `rf_adv`/0.820932; "one env var away" while the image holds only `rf_adv` | **Yes** | README corrected (numbers, image-vs-code defaults table incl. `DF_WORKERS=1`, switching instructions, test count, single-flight semantics). | doc audit |
+| 8 | "Richer features exceed the runtime budget" and "proven ceiling" unsupported; 99.99 % arithmetic wrong (correct ≈ 67.6 %) | **Yes** (exact hypergeometric 67.64 %; the EMBER-2381 member is served within budget in v3.3) | COMPARISON_REPORT §4 arithmetic corrected with an erratum; §6/§8 budget-exclusion claim replaced by the measured fact; the "not reachable / structurally caps / is the ceiling" wording (README, COMPARISON §1 and §6, SOTA_RESEARCH) reworded to the observation that the NFS models tried stopped at ~80 % (one RF family, one aborted LightGBM run). | doc audit |
+| 9 | Tests covered the supplied model (`models/nfs`, 0.25), not the deployed configuration; no timeout/error-handling tests; `Model.__init__` did not check manifest digests | **Yes** | `Model` now verifies every manifest SHA-256 and size at load and refuses a directory without a manifest (`DF_SKIP_MANIFEST_VERIFY=1` opts out, reported in `/model`); the manifest is unsigned and does not cover `operating_point.json`; `tests/test_integrity.py`; deployed-configuration server test (`rf_adv`, 0.820932); deadline/worker/entry-point tests. Suite: **108 tests** on branch `release/sure-shot-v3.1` (the message of commit 3b579be says 96, which was wrong). | test run |
 | lit. | ERDALT certificate implication; Lucas equivalence; AL/SSL F1 presented as a solution | **Yes** (ERDALT and Lucas wording; the F1 passage was labelled F1 but implied "our exact stack") | SOTA_RESEARCH.md and the Lucas passages reworded. | doc audit |
 
 ## What remains open
+
+* The `package_model.py` test-set guard is a filename heuristic; nothing compares calibration rows against the final evaluation rows.
+* Native x86 memory and latency are unmeasured (only emulated amd64 on this arm64 host).
+* The manifest is unsigned: whoever can rewrite the arrays can rewrite the manifest.
 
 * **A calibration partition disjoint from the final EMBER test** for the single-model image,
   with the threshold frozen before evaluation. Not done: it requires retraining `rf_adv`
@@ -30,9 +41,10 @@ means the defect existed in the current tree, not only in the September evidence
   novel-feature subset instead.
 * **Executable-level adversarial robustness**: producing functionality-preserving binaries
   and running them. Nothing in this repository claims it any more.
-* **Memory headroom**: the forked-worker server peaks at ~942 MiB of the 1 GiB limit after
-  six 60+ MB benign files (thread pool: 897 MiB; frozen v3: 1024 MiB). The course set
-  peaks at ~230 MiB.
+* **Memory headroom**: see the memory follow-up below (the first forked-worker build
+  peaked at the 1 GiB limit; the thread-pool v3.3 build at 897 MiB and the frozen v3 at
+  1024 MiB, both in `reports/v33-2026-10-20/container_gate_v33_quiet.log` and
+  `container_gate_v3_baseline_quiet.log`). The course set peaks at ~230 MiB.
 
 ## Recomputed comparison numbers (finding 5)
 
@@ -44,7 +56,7 @@ All four stored comparisons were re-evaluated on the same rows (same files, same
 
 | Set (rows) | Metric | Change |
 |---|---|---|
-| EMBER temporal, 25k/25k | TPR @ 1 % FPR, all five models | unchanged (supplied 71.16 %, retrained 58.73 %, rf_tuned 77.87 %, rf_augmented 79.92 %) |
+| EMBER temporal, 25k/25k | TPR @ 1 % FPR | unchanged for the three models with a stored entry (supplied 71.16 %, retrained 58.73 %, rf_tuned 77.87 %); **+1 sample** for rf_augmented (79.920 → 79.924 %, `ember_aug.json`) and rf_adv (newly evaluated) |
 | EMBER temporal | ROC-AUC | ≤ 3e-5 |
 | EMBER temporal | PR-AUC (now average precision) | −4.6e-4 … +1.4e-4 |
 | recent_test, 60/433 | TPR @ 1 % FPR, rf_tuned and rf_augmented | **+1 sample each** (38.11 → 38.34 %, 28.18 → 28.41 %): the strict-threshold selection admits one more detection at the same FPR (0/60) |
@@ -66,14 +78,35 @@ concurrent large requests cannot fit under 1 GiB in any design; each idle worker
 request waits for the worker up to its own deadline instead of doubling the transient
 (course-set files take < 100 ms each), and idle memory drops by ~100 MiB. The gate log
 `reports/review-response-2026-10-21/container_gate_v33_final_1worker_quiet.log` records
-the result (arm64, one worker: course set 50/50 at p95 42 ms, idle 209 MiB, the six 60+ MB
-benign files answered `0` in 2.0–3.3 s, cgroup peak 864 MiB, **anonymous memory at most
-450 MiB** while scoring the 67 MB file, no OOM).
+the result. After the byte-histogram fix and worker recycling (re-verification section),
+the final arm64 image gives, on a quiet host with a 20 ms in-container sampler
+(`container_gate_v33_final_quiet_memsplit.log`): course set 50/50 at p95 40 ms; the six
+60+ MB benign files answered `0` in 2.0–2.8 s; **cgroup peak 603 MiB** after them (the
+first forked-worker build hit 1024); **anonymous memory at most 410 MiB** while scoring the
+67 MB file three times, idle 184 MiB; no OOM. Against the same container
+(`stalled_upload_probe.log`): a stalled upload is answered `1` at 4.52 s and a benign PE
+sent 50 ms later is scored `0`; a benign PE after a 40 s idle gap is scored `0`; a drip
+upload (one byte per 0.5 s) is answered `1` at 4.51 s.
 
-**amd64, under emulation on this arm64 host** (`container_gate_v33_final_1worker_amd64_quiet.log`):
-course set 50/50 at p95 65 ms; the six large files answered `0` in 3.1–4.5 s (the 67 MB
-file at the budget edge; an earlier two-worker emulated run answered it `1` on overrun);
-cgroup peak 952 MiB and **anonymous memory up to 949 MiB** on that file. The emulator's own
-translation memory is charged to the container, so this number is not the native x86
-figure — which has **not** been measured and is the main remaining uncertainty for the
-grading host. The course-set files are ≤ 2.9 MB and peak at ~320 MiB under emulation.
+**amd64, under emulation on this arm64 host** (`container_gate_v33_final_amd64_quiet.log`):
+course set 50/50 at p95 76 ms; the six large files answered `0` in 3.0–3.95 s (an earlier
+build, before the histogram fix, answered the 67 MB file at 4.51 s); cgroup peak 517 MiB,
+anonymous memory at most 468 MiB, idle 239 MiB. Emulation is roughly twice as slow as
+native x86 and charges the emulator's own memory to the container, so these are
+conservative; the native x86 figures have **not** been measured. The course-set files are
+≤ 2.9 MB and peak at ~310 MiB under emulation.
+
+## Re-verification of the fixes (2026-10-22) and what it found
+
+Five independent agents re-derived each fix (`dataset/results/review_response_verification.json`).
+The deadline fix, the evaluators, the metrics and the manifest check held up; the re-verification
+also found defects introduced by the first fix, all corrected the same day:
+
+| Found | Fix | Test |
+|---|---|---|
+| **Idle workers exited after 30 s.** The child's reply path left a 30 s timeout on its socket; the next idle `recv` timed out, the child exited, and the next request was answered `1` without scoring (`worker_failed`). Reproduced in-process and in the shipped container (a request after a 35 s pause → `1`). | `_recv_exact` resets the timeout when it is asked to block; recycling made explicit (below). | `test_workers.RegressionsFromVerification.test_idle_worker_does_not_exit_after_the_reply_timeout` (reply timeout shrunk to 0.3 s) |
+| **Slow-drip uploads escaped the budget.** `rfile.read(n)` retried the per-recv timeout for every byte, so one byte every 3 s stretched a request to 9–16 s. | Body reads use `read1` (one `recv` per call) and the relay re-checks the deadline per chunk. | `test_server_deadlines.DripUploadTest` (one byte per 0.25 s, answered at the 1 s budget) |
+| **The submission zip lacked `defender/workers.py`**; the image built from it could not start (the packaging check only listed modules). | Module added; `package_submission.sh` now starts the from-zip image and requires `/health` and a benign classification before it reports success. | packaging run |
+| **Worker memory grew across large files** and the gate's 0.2 s sampler had understated the transient (verifier's 20 ms sampler: ~900 MiB anon on the 67 MB file, rising after repeated large files). Profiling attributed 509 MiB of it to EMBER's byte histogram (`np.bincount` casts the whole buffer to 64-bit). | Chunked histogram (identical counts, 32 MiB transient); workers recycle after 50 requests or any body ≥ 8 MiB without losing a request; no lowercase copy of the body in the command-line tell; gate samples anonymous memory every 20 ms in the container over three large requests. | `test_ember_compat_memory` (identical to the original on synthetic and real inputs; transient bound), `test_workers` recycling tests, gate log |
+| Failed respawn never retried; a non-OS exception could drop a worker from the pool. | Respawn retries with backoff; any exception retires and replaces the worker. | code review |
+| Response-document provenance: the stalled-upload probe (4.51 s), the thread-pool and frozen-v3 peaks were quoted without a log in the cited folder; "no EMBER headline changed" was off by one sample for two models; the suite count was 92/96, not 94. | Citations fixed; the stalled-upload probe is now saved as `reports/review-response-2026-10-21/stalled_upload_probe.log`. | — |

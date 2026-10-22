@@ -15,8 +15,10 @@ in [THREAT_MODEL.md](THREAT_MODEL.md). Dataset construction is in
    and **1.8× faster**.
 3. The naive retrain (scikit-learn defaults) is *worse* (58.7 %) — a documented
    trap, not a modelling dead end (see §4).
-4. **No model reaches 95 % TPR at 1 % FPR** on this feature space. That target
-   requires the richer EMBER feature set (§6); the NFS 250k-hash space caps lower.
+4. **No model tried reaches 95 % TPR at 1 % FPR** on this feature space (one RF
+   family and one aborted LightGBM run, §6). The richer EMBER feature set reaches it
+   (§6, 93.8 %); whether the NFS 250k-hash space itself forbids 95 % is not established,
+   only that these models did not get there.
 5. On **recent 2020–2026 malware**, every model **collapses to AUC ≈ 0.79** —
    concept drift is real and large, and is the dominant deployment risk (§5).
 
@@ -103,8 +105,8 @@ the collisions). The gap between EMBER's number and ours (§3) was attributed he
 that attribution was wrong. The EMBER-2381 LightGBM member was later served inside the
 same budget (~0.5 ms per feature vector; live p95 56 ms, a 33 MB file in 1.43 s on one
 CPU — [RICHER_FEATURES_ENSEMBLE.md](RICHER_FEATURES_ENSEMBLE.md) §6, [V3_DETECTOR.md](V3_DETECTOR.md)),
-so the budget never excluded richer features; this section only shows that the NFS
-hashed feature space, not the learner, is the ceiling.
+so the budget never excluded richer features; this section only shows that the models
+tried on the NFS hashed feature space stopped at ~80 %, and that EMBER-2381 went further.
 
 ## 7. Does adding the collected recent malware help?
 

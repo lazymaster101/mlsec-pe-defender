@@ -34,6 +34,17 @@ def build_two_stump_model(directory: pathlib.Path, base_score: float) -> None:
         "numerical_attributes": ["f0", "f1"], "categorical_attributes": [],
         "categorical_categories": [], "categorical_handle_unknown": "ignore",
         "textual_attributes": [], "hashing": {}}))
+    write_manifest(directory)
+
+
+def write_manifest(directory: pathlib.Path) -> None:
+    """The loader verifies every artifact against manifest.json (review 2026-09-21, finding 9)."""
+    import hashlib
+    files = {}
+    for path in sorted(directory.iterdir()):
+        if path.suffix in (".npy", ".json") and path.name != "manifest.json":
+            files[path.name] = {"sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "bytes": path.stat().st_size}
+    (directory / "manifest.json").write_text(json.dumps({"format_version": 1, "files": files}))
 
 
 class GbdtServingTest(unittest.TestCase):
@@ -54,6 +65,7 @@ class GbdtServingTest(unittest.TestCase):
     def test_large_negative_score_does_not_overflow(self) -> None:
         np.save(self.dir / "probabilities.npy",
                 np.array([0.0, -1000.0, -1000.0, 0.0, -1000.0, -1000.0], "<f8"))
+        write_manifest(self.dir)
         model = Model(self.dir, "training")
         probability = model.probability(model.vectorize({"f0": 0.0, "f1": 0.0}))
         self.assertGreaterEqual(probability, 0.0)
@@ -63,6 +75,7 @@ class GbdtServingTest(unittest.TestCase):
         schema = json.loads((self.dir / "schema.json").read_text())
         schema["ensemble"] = "mystery"
         (self.dir / "schema.json").write_text(json.dumps(schema))
+        write_manifest(self.dir)
         with self.assertRaises(ValueError):
             Model(self.dir, "training")
 
@@ -70,6 +83,7 @@ class GbdtServingTest(unittest.TestCase):
         schema = json.loads((self.dir / "schema.json").read_text())
         del schema["ensemble"]
         (self.dir / "schema.json").write_text(json.dumps(schema))
+        write_manifest(self.dir)
         model = Model(self.dir, "training")
         self.assertEqual(model.ensemble, "forest_mean")
         # Mean of the two reached leaves, no sigmoid.

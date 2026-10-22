@@ -89,7 +89,7 @@ Other representations, honestly:
   directions (capture semantics byte/tabular models miss) but need disassembly + graph
   inference and don't yet fit a ≤1 GB / ≤5 s static budget.
 
-**Recommendation (ceiling-breaker):** our NFS 250k-hash space structurally caps at
+**Recommendation (ceiling-breaker):** the NFS 250k-hash models we tried stopped at
 ~80 % TPR@1%FPR. **Adopt EMBER's 2381 rich features + a GBDT (LightGBM/XGBoost).** Our
 earlier GBDT rejection was specific to the 250k-*hash* space (histogram cost); on 2381
 dense features GBDT is cheap and is the documented SOTA. Our sklearn-free runtime

@@ -129,3 +129,53 @@ class DeployedConfigurationTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DripUploadTest(unittest.TestCase):
+    """A client sending one byte at a time must not stretch the request past its budget
+    (buffered reads retried per byte; verification 2026-10-22)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.defender = server_module.Defender(fast_scorer, lambda: {"model_name": "stub"}, 0.5,
+                                              workers=1, mode="process", budget_seconds=1.0)
+        cls.server, cls.url = _serve(cls.defender)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown(); cls.server.server_close(); cls.defender.close()
+
+    def test_drip_upload_is_answered_at_the_budget(self):
+        host, port = self.server.server_address[:2]
+        t = time.monotonic()
+        with socket.create_connection((host, port), timeout=10) as s:
+            s.sendall(b"POST / HTTP/1.1\r\nHost: x\r\nContent-Type: application/octet-stream\r\nContent-Length: 40\r\n\r\n")
+            out = b""
+            s.settimeout(0.25)
+            for _ in range(40):                       # one byte every 0.25 s = 10 s total
+                try:
+                    s.sendall(b"M")
+                except OSError:
+                    break
+                try:
+                    chunk = s.recv(4096)
+                    if chunk:
+                        out += chunk
+                        if b"result" in out:
+                            break
+                except socket.timeout:
+                    pass
+            if b"result" not in out:
+                s.settimeout(3)
+                try:
+                    while b"result" not in out:
+                        chunk = s.recv(4096)
+                        if not chunk:
+                            break
+                        out += chunk
+                except socket.timeout:
+                    pass
+        elapsed = time.monotonic() - t
+        self.assertIn(b'{"result": 1}', out)
+        self.assertLess(elapsed, 3.0, f"drip upload took {elapsed:.1f}s")
+        self.assertGreaterEqual(self.defender.stats()["slow_upload"], 1)

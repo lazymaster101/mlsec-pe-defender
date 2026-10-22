@@ -23,8 +23,10 @@ for s in json.load(open(GS / "manifest.json"))["samples"]:
     t = time.time()
     try:
         with urllib.request.urlopen(req, timeout=DEADLINE) as r:
-            res = json.loads(r.read()).get("result")
+            res = json.loads(r.read()).get("result") if r.status == 200 else None
     except Exception:
+        res = None
+    if type(res) is not int:                       # booleans / strings are not answers
         res = None
     elapsed = time.time() - t
     lat.append(elapsed)
