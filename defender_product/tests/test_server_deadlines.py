@@ -179,3 +179,25 @@ class DripUploadTest(unittest.TestCase):
         self.assertIn(b'{"result": 1}', out)
         self.assertLess(elapsed, 3.0, f"drip upload took {elapsed:.1f}s")
         self.assertGreaterEqual(self.defender.stats()["slow_upload"], 1)
+
+
+class KeepAliveTest(unittest.TestCase):
+    def test_idle_keep_alive_connection_survives_a_gap_longer_than_the_budget(self):
+        defender = server_module.Defender(fast_scorer, lambda: {"model_name": "stub"}, 0.5,
+                                          workers=1, mode="process", budget_seconds=1.0)
+        srv, url = _serve(defender)
+        try:
+            host, port = srv.server_address[:2]
+            with socket.create_connection((host, port), timeout=10) as s:
+                req = b"POST / HTTP/1.1\r\nHost: x\r\nContent-Type: application/octet-stream\r\nContent-Length: 6\r\n\r\nbenign"
+                for gap in (0.0, 2.5):                           # 2.5 s > the 1 s budget
+                    time.sleep(gap)
+                    s.sendall(req)
+                    out = b""
+                    while b'{"result"' not in out:
+                        chunk = s.recv(4096)
+                        self.assertTrue(chunk, "server closed the keep-alive connection")
+                        out += chunk
+                    self.assertIn(b'{"result": 0}', out)
+        finally:
+            srv.shutdown(); srv.server_close(); defender.close()

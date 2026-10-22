@@ -161,3 +161,37 @@ class RegressionsFromVerification(unittest.TestCase):
                 pool.close()
         finally:
             W.MAX_REQUESTS_PER_WORKER = old
+
+
+class FinalVerificationRegressions(unittest.TestCase):
+    def test_pool_recovers_after_respawn_failures(self):
+        from defender import workers as W
+        old_attempts, old_retry = W.RESPAWN_ATTEMPTS, W.RESPAWN_RETRY_SECONDS
+        W.RESPAWN_ATTEMPTS, W.RESPAWN_RETRY_SECONDS = 1, 0.3
+        pool = WorkerPool(scorer, n_workers=1, mode="process", warmup=b"warm")
+        try:
+            real_process = pool._ctx.Process
+
+            class Failing:
+                def __init__(self, *a, **k):
+                    raise OSError(11, "EAGAIN")
+            pool._ctx = type("Ctx", (), {"Process": Failing, "Pipe": None})()
+            self.assertEqual(pool.classify(b"slow", time.monotonic() + 0.2), (1, "overrun"))
+            time.sleep(0.5)                                   # the first attempts fail
+            self.assertGreaterEqual(pool.stats()["respawn_failed"], 1)
+            pool._ctx = type("Ctx", (), {"Process": staticmethod(real_process)})()
+            self.assertTrue(wait_live(pool, 1, seconds=10), "pool never recovered once forking worked again")
+            self.assertEqual(pool.classify(b"benign", time.monotonic() + 2), (0, "scored"))
+        finally:
+            pool.close()
+            W.RESPAWN_ATTEMPTS, W.RESPAWN_RETRY_SECONDS = old_attempts, old_retry
+
+    def test_past_deadline_does_not_kill_a_healthy_worker(self):
+        pool = WorkerPool(scorer, n_workers=1, mode="process", warmup=b"warm")
+        try:
+            self.assertEqual(pool.classify(b"benign", time.monotonic() - 0.01), (1, "overrun"))
+            self.assertEqual(pool.stats()["killed_overrun"], 0)
+            self.assertEqual(pool.stats()["live"], 1)
+            self.assertEqual(pool.classify(b"benign", time.monotonic() + 2), (0, "scored"))
+        finally:
+            pool.close()

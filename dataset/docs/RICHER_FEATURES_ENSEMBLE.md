@@ -1,11 +1,11 @@
 # Richer features + diversified ensemble — results and honest caveats
 
-Follow-on to [SOTA_RESEARCH.md](SOTA_RESEARCH.md): breaking the ~80% ceiling of the NFS
-hashed feature space by moving to EMBER's 2381 rich features, and combining the result
+Follow-on to [SOTA_RESEARCH.md](SOTA_RESEARCH.md): breaking past the ~80% at which every model we tried on the NFS
+hashed feature space stopped (not a proven ceiling) by moving to EMBER's 2381 rich features, and combining the result
 with the hardened NFS model as a diversified ensemble. Every number here was measured;
 where a result is fragile or was inflated by a bug, it says so.
 
-## 1. The ceiling was the feature space, not the algorithm
+## 1. The limit we hit was the feature space, not the algorithm
 
 Trained LightGBM on EMBER's full 2381-dim features (byte histograms, byte-entropy,
 string stats, header/section/import/export/data-directory groups), on the **same** train/
@@ -19,7 +19,7 @@ test samples our RF models used (matched by SHA-256):
 | **`ember_gbdt`** | **EMBER-2381** | **93.7 %** | **~82 %** |
 
 A **+17-point** jump at 1 % FPR (and far larger at the strict 0.1 % point production
-uses), at <60 MB and millisecond inference. Confirmed: the NFS ceiling was the *clues*,
+uses), at <60 MB and millisecond inference. Observed: the limit of the NFS models tried was the *clues*,
 not the learner. Tools: `tools/train_ember_gbdt.py`, `tools/ember_compat.py` (runs the
 EMBER extractor on modern lief-0.17 / numpy-2).
 
