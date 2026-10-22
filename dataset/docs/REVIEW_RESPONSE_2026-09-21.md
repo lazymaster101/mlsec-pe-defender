@@ -15,7 +15,7 @@ means the defect existed in the current tree, not only in the September evidence
 | 6 | Recent split: random within family, unparseable row dropped, 140 trained goodware pooled with 60 held-out when reporting 0.5 %; 84/433 test malware feature-identical to a training row | **Yes, exactly** (0 SHA overlap; 84 duplicates; 6/60 held-out benign also have twins; benign rows carry no date) | Documents now report held-out goodware separately (1/60 = 1.7 %, Wilson 0.3–8.9 %) and the novel-feature subset (186/349 = 53.3 % for `rf_adv`). `split_recent.py` gained `--group-duplicates`, `--temporal`, `--keep-unparseable`. **Not re-split**: a new split invalidates `rf_adv`, which is trained on the current one; the v3+ fusion fit already excludes the 84 duplicates. | counts re-derived from the split files |
 | 7 | README attributed the clean model's 66 % to `rf_adv` (58.66 %); config table showed `models/nfs`/0.25 vs the image's `rf_adv`/0.820932; "one env var away" while the image holds only `rf_adv` | **Yes** | README corrected (numbers, image-vs-code defaults table, switching instructions, test count). | doc audit |
 | 8 | "Richer features exceed the runtime budget" and "proven ceiling" unsupported; 99.99 % arithmetic wrong (correct ≈ 67.6 %) | **Yes** (exact hypergeometric 67.64 %; the EMBER-2381 member is served within budget in v3.3) | COMPARISON_REPORT §4 arithmetic corrected with an erratum; §6/§8 budget-exclusion claim replaced by the measured fact. | doc audit |
-| 9 | Tests covered the supplied model (`models/nfs`, 0.25), not the deployed configuration; no timeout/error-handling tests; `Model.__init__` did not check manifest digests | **Yes** | `Model` now verifies every manifest SHA-256 and size at load (`DF_SKIP_MANIFEST_VERIFY=1` to opt out, reported in `/model`); `tests/test_integrity.py`; deployed-configuration server test (`rf_adv`, 0.820932); deadline/worker/entry-point tests. Suite: 92 tests. | test run |
+| 9 | Tests covered the supplied model (`models/nfs`, 0.25), not the deployed configuration; no timeout/error-handling tests; `Model.__init__` did not check manifest digests | **Yes** | `Model` now verifies every manifest SHA-256 and size at load (`DF_SKIP_MANIFEST_VERIFY=1` to opt out, reported in `/model`); `tests/test_integrity.py`; deployed-configuration server test (`rf_adv`, 0.820932); deadline/worker/entry-point tests. Suite: **94 tests** (the commit message of 3b579be says 96; 94 is the measured count). | test run |
 | lit. | ERDALT certificate implication; Lucas equivalence; AL/SSL F1 presented as a solution | **Yes** (ERDALT and Lucas wording; the F1 passage was labelled F1 but implied "our exact stack") | SOTA_RESEARCH.md and the Lucas passages reworded. | doc audit |
 
 ## What remains open
@@ -66,5 +66,14 @@ concurrent large requests cannot fit under 1 GiB in any design; each idle worker
 request waits for the worker up to its own deadline instead of doubling the transient
 (course-set files take < 100 ms each), and idle memory drops by ~100 MiB. The gate log
 `reports/review-response-2026-10-21/container_gate_v33_final_1worker_quiet.log` records
-the result; the amd64 image overran the 4.5 s budget on the 67 MB file under emulation
-(answered `1`), as the old code did in the v4 review; native x86 is roughly twice as fast.
+the result (arm64, one worker: course set 50/50 at p95 42 ms, idle 209 MiB, the six 60+ MB
+benign files answered `0` in 2.0–3.3 s, cgroup peak 864 MiB, **anonymous memory at most
+450 MiB** while scoring the 67 MB file, no OOM).
+
+**amd64, under emulation on this arm64 host** (`container_gate_v33_final_1worker_amd64_quiet.log`):
+course set 50/50 at p95 65 ms; the six large files answered `0` in 3.1–4.5 s (the 67 MB
+file at the budget edge; an earlier two-worker emulated run answered it `1` on overrun);
+cgroup peak 952 MiB and **anonymous memory up to 949 MiB** on that file. The emulator's own
+translation memory is charged to the container, so this number is not the native x86
+figure — which has **not** been measured and is the main remaining uncertainty for the
+grading host. The course-set files are ≤ 2.9 MB and peak at ~320 MiB under emulation.

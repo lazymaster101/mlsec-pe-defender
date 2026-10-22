@@ -230,7 +230,7 @@ defender/workers.py    forked inference workers, SIGKILLed at the deadline and r
 models/nfs/            exported arrays, schema.json, manifest.json with SHA-256s (verified at load)
 tools/export_legacy_model.py  offline pickle → arrays conversion (not in the image)
 tools/evaluate.py      FPR/TPR measurement and threshold selection (5 s deadline over HTTP)
-tests/                 9x tests incl. sklearn-derived golden vectors, deadline and integrity tests
+tests/                 94 tests incl. sklearn-derived golden vectors, deadline and integrity tests
 ```
 
 ## Tests
