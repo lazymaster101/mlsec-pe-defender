@@ -65,7 +65,7 @@ All four stored comparisons were re-evaluated on the same rows (same files, same
 | EMBER temporal | ROC-AUC | ≤ 3e-5 |
 | EMBER temporal | PR-AUC (now average precision) | −4.6e-4 … +1.4e-4 |
 | recent_test, 60/433 | TPR @ 1 % FPR, rf_tuned and rf_augmented | **+1 sample each** (38.11 → 38.34 %, 28.18 → 28.41 %): the strict-threshold selection admits one more detection at the same FPR (0/60) |
-| recent_test | PR-AUC | +0.0024 (endpoint now included) |
+| recent_test | PR-AUC | +0.0024 (rf_tuned) / +0.0023 (rf_augmented) (endpoint now included) |
 | recent_drift, 200/1455 | TPR @ 1 % FPR | supplied unchanged (15.12 %); rf_tuned +1 sample (34.23 → 34.30 %) |
 | recent_drift | ROC-AUC | supplied −2.4e-4 (ties); rf_tuned +1e-5 |
 
@@ -76,10 +76,12 @@ reproduced exactly by the review; they are unchanged.
 ## Memory follow-up (2026-10-21)
 
 Splitting the cgroup counter showed anonymous memory reaching 952 MiB while a 67 MB benign
-file was scored with two forked workers, with 313 MiB anonymous idle (figures from the
-verifiers' own 20 ms sampling, quoted in `dataset/results/review_response_verification.json`;
-the two-worker cgroup gate, `container_gate_v33_final_quiet.log`, shows 398 MiB after the
-course set and a 1024 MiB peak). The transient belongs to the per-request feature
+file was scored with two forked workers, with 313 MiB anonymous idle (the author's
+two-worker gate log of 2026-10-21, since overwritten, as quoted in
+`dataset/results/review_response_verification.json`; the verifiers' own 20 ms sampling of
+that build measured 896–901 MiB on a fresh container, 1001 MiB after 20–30 prior large
+files, idle 178 MiB; the two-worker cgroup gate `container_gate_v33_final_quiet.log` shows
+398 MiB after the course set and a 1024 MiB peak). The transient belongs to the per-request feature
 extraction (the byte histogram alone, see below), so two concurrent large requests cannot
 fit under 1 GiB in any design; each idle worker adds ~130 MiB anonymous (313 → 182 MiB) or
 ~190 MiB cgroup (398 → 209 MiB, `container_gate_v33_final_1worker_quiet.log`). Both images
@@ -92,8 +94,9 @@ arm64 image gives, on a quiet host with a 20 ms in-container sampler
 (`container_gate_v33_final_quiet_memsplit.log`, image 82413471f970): course set 50/50 at
 p95 40 ms, max 58 ms; the six 60+ MB benign files answered `0` in 2.06–2.75 s; **cgroup
 peak 603 MiB** after them, of which 165 MiB is page cache (`file=165MiB` in the same log;
-an independent re-run of the previous build measured 435 MiB with no page cache and the
-same anonymous figures); **anonymous memory at most 409 MiB** while scoring the 67 MB file
+an independent re-run of the previous build measured a 435 MiB peak with no page cache
+and the same anonymous figures, `dataset/results/review_response_final_check.json`);
+**anonymous memory at most 409 MiB** while scoring the 67 MB file
 three times, idle 182 MiB; no OOM; container log clean. Against the same container
 (`stalled_upload_probe.log`): a benign PE sent 50 ms after a stalled upload started is
 scored `0` in 16 ms while the stall is still pending; the stalled upload is answered `1`
@@ -105,16 +108,18 @@ both scored `0`.
 image df8cc840c35e): course set 50/50 at p95 78 ms, max 302 ms; five of the six large
 files answered `0` in 3.3–4.0 s and **the 66.8 MB file overran the 4.5 s budget (4.52 s)
 and was answered `1`** in this run, where the previous run of the same configuration took
-3.95 s; cgroup peak 516 MiB, anonymous memory at most 467 MiB, idle 238 MiB. Emulation
-ran 1.4–2.0× slower than the native arm64 build on these files (p95 78 vs 40 ms; 67 MB
-file 4.52 vs 2.75 s) and charges the emulator's own memory to the container, so these are
+3.95 s (that superseded log is the version of `container_gate_v33_final_amd64_quiet.log` at
+commit 39c62b5); cgroup peak 516 MiB, anonymous memory at most 467 MiB, idle 238 MiB. Emulation
+ran 1.25–1.95× slower than the native arm64 build on these files (p95 78 vs 40 ms; 67 MB
+file 4.52 vs 2.75 s; per-file ratios 1.25–1.77) and charges the emulator's own memory to the container, so these are
 conservative; the native x86 figures have **not** been measured. On the grading host a
 file of that size would sit at the edge of the budget; the course-set files are ≤ 2.9 MB
 and peak at 318 MiB under emulation.
 
 ## Re-verification of the fixes (2026-10-22) and what it found
 
-Five independent agents re-derived each fix (`dataset/results/review_response_verification.json`).
+Five independent agents re-derived each fix (`dataset/results/review_response_verification.json`);
+a final three-agent pass and a provenance-only check followed (`dataset/results/review_response_final_check.json`).
 The deadline fix, the evaluators, the metrics and the manifest check held up; the re-verification
 also found defects introduced by the first fix, all corrected the same day:
 
@@ -124,5 +129,5 @@ also found defects introduced by the first fix, all corrected the same day:
 | **Slow-drip uploads escaped the budget.** `rfile.read(n)` retried the per-recv timeout for every byte, so one byte every 3 s stretched a request to 9–16 s. | Body reads use `read1` (one `recv` per call) and the relay re-checks the deadline per chunk. | `test_server_deadlines.DripUploadTest` (one byte per 0.25 s, answered at the 1 s budget) |
 | **The submission zip lacked `defender/workers.py`**; the image built from it could not start (the packaging check only listed modules). | Module added; `package_submission.sh` now starts the from-zip image and requires `/health` and a benign classification before it reports success. | packaging run |
 | **Worker memory grew across large files** and the gate's 0.2 s sampler had understated the transient (verifier's 20 ms sampler: ~900 MiB anon on the 67 MB file, rising after repeated large files). Profiling attributed 509 MiB of it to EMBER's byte histogram (`np.bincount` casts the whole buffer to 64-bit; derived figure 66,763,664 B × 8, the profiling run itself was not logged). The EMBER strings extractor still lowercases a copy of the body (`ember_compat.py`, ~67 MB transient on the largest file). | Chunked histogram (identical counts, 32 MiB transient); workers recycle after 50 requests or any body ≥ 8 MiB without losing a request; no lowercase copy of the body in the command-line tell; gate samples anonymous memory every 20 ms in the container over three large requests. | `test_ember_compat_memory` (identical to the original on synthetic and real inputs; transient bound), `test_workers` recycling tests, gate log |
-| Failed respawn never retried; a non-OS exception could drop a worker from the pool. | Respawn retries with backoff (5 attempts, then every 2 s indefinitely: the final verification found the pool could stay empty for good after five failures); any exception retires and replaces the worker; a request whose deadline has already passed when it gets a worker is answered `1` without killing that worker. | `test_workers.FinalVerificationRegressions` |
+| Failed respawn never retried; a non-OS exception could drop a worker from the pool. | Respawn retries with backoff (5 attempts, then every 2 s indefinitely: the final verification pass, `dataset/results/review_response_final_check.json`, found the pool could stay empty for good after five failures); any exception retires and replaces the worker; a request whose deadline has already passed when it gets a worker is answered `1` without killing that worker. | `test_workers.FinalVerificationRegressions` |
 | Response-document provenance: the stalled-upload probe (4.51 s), the thread-pool and frozen-v3 peaks were quoted without a log in the cited folder; "no EMBER headline changed" was off by one sample for two models; the suite count was 92/96, not 94. | Citations fixed; the stalled-upload probe is now saved as `reports/review-response-2026-10-21/stalled_upload_probe.log`. Third round (final verification): the test count was corrected again to the branch count (106); `PAPER_CONCEPTS.md` and `RICHER_FEATURES_ENSEMBLE.md` still carried the "Lucas recipe" / "ceiling" wording and were relabelled; the memory figures below were replaced by logged values; the gate script now lives at `dataset/tools/container_gate.sh`. | — |

@@ -1,0 +1,352 @@
+{
+ "workflow": "final-check-review-fixes",
+ "run": "wf_640da417-f04",
+ "date": "2026-10-22",
+ "verifiers_and_judge": [
+  {
+   "verdict": "PASS",
+   "findings": [
+    {
+     "claim": "Submission zip sha256 equals the one in the response document header (08440fb2f35e2caecba38b089e4e38139b2d4a5b4b2336ac179343dd077ad699) and the zip contains defender/workers.py",
+     "verified": true,
+     "evidence": "shasum -a 256 \"/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/mlsec-defender-submission-v33.zip\" = 08440fb2f35e2caecba38b089e4e38139b2d4a5b4b2336ac179343dd077ad699 (45,038,277 bytes, mtime Oct 22 11:58). unzip -l: 34 entries, 120,520,242 bytes uncompressed, includes defender/workers.py (15,355 bytes) plus the other 11 defender modules, Dockerfile, requirements.ensemble.txt, models/rf_adv, models/ember_gbdt, models/ember_ft_v33, models/fusion_v33.json. After extraction to a fresh dir, all 12 defender/*.py and requirements.ensemble.txt are byte-identical (cmp) to defender_product/defender/ and defender_product/requirements.ensemble.txt; the zip Dockerfile differs from defender_product/Dockerfile.ensemble only in the two trailing '# Build:/# Run:' comment lines (lines 52-53).",
+     "severity": "info"
+    },
+    {
+     "claim": "Gate on mlsec-defender:v33 (image aedfdc7085b8): course set TP=50 FN=0 FP=0 TN=50, errors 0, no late answers",
+     "verified": true,
+     "evidence": "Ran a scratch copy of container_gate.sh whose only change (diff shown) is PORT=$((19700 + RANDOM % 300)) to honor the >=19700 rule; command: \"$S/container_gate_p197.sh\" mlsec-defender:v33 v33verify, log at /private/tmp/claude-501/-Users-seshadithyasaravanan-Desktop-CSCE-704-Model/162af773-f9f6-4002-89df-456c9332050c/scratchpad/final/container/gate_v33_verify.log. ps showed no docker build/training (0 matches). Output: '[v33verify] image: sha256:aedfdc7085b8 size: 764 MB'; '/model: ensemble-v33 thr=4.0819'; 'TP=50 FN=0 FP=0 TN=50 | TPR=100.0% FPR=0.0% | PASS | errors=0 (late>5s: 0) | latency p95=42ms max=58ms' (document: p95 40 ms, max 67 ms); 'malformed input -> {\"result\": 1}'; 'error lines in container log: 0'; 'gate exit code: 0 (wall 28s)'. Host was NOT quiet: load averages 9.57 at start and 13.73 at end on a 10-core machine (other sessions running), yet the numbers reproduced.",
+     "severity": "info"
+    },
+    {
+     "claim": "Six largest goodware2 files all answered 0 under 4.5 s in the gate",
+     "verified": true,
+     "evidence": "Gate output: 66.8 MB 2.90 s result=0 (choco:git.install); 65.7 MB 2.15 s 0; 64.5 MB 2.52 s 0; 64.4 MB 2.45 s 0; 62.6 MB 2.10 s 0; 62.2 MB 2.02 s 0. Document's run: 2.81/2.10/2.43/2.13/2.02/1.99 s. Max observed 2.90 s, 1.6 s under the 4.5 s budget.",
+     "severity": "info"
+    },
+    {
+     "claim": "Gate memory: cgroup peak around 600 MiB, anon max around 410 MiB (20 ms sampler), idle ~184 MiB, oom_kill 0",
+     "verified": true,
+     "evidence": "Gate output: 'mem after course set: 201 MiB peak: 214 MiB'; 'mem peak after large files: 435 MiB oom_kill: oom_kill 0'; 'anon memory while scoring the largest file 3x (20 ms in-container sampler): max 411 MiB idle now: 185 MiB'. Anon max (411 vs doc 410) and idle (185 vs 184) match within 1 MiB. The cgroup peak I measured, 435 MiB, is 168 MiB LOWER than the document's 603 MiB: the document's log shows 'file 172797952' (page cache counted in memory.current) at that moment whereas my run shows 'file 0', so the 603 figure is a page-cache-inflated upper bound rather than the process footprint; the anon numbers, which are the ones the document reasons about, reproduce exactly. memory.events oom_kill 0.",
+     "severity": "minor"
+    },
+    {
+     "claim": "Repeated large files do not grow worker memory: recycling bounds it (own 20 ms in-container sampler, largest file sent 10x sequentially)",
+     "verified": true,
+     "evidence": "Fresh v33 container 'verify-mem10' (-m 1g --cpus 1 --read-only --tmpfs /tmp, 127.0.0.1:19750), sampler /tmp/sampler.py tagging 20 ms samples of memory.stat 'anon' by a /tmp/ctl marker set per request/idle window (2,413 samples total); file 52188f917b378f00\u2026bin = 66,763,664 bytes. Idle anon before: 184 MiB, memory.peak before 214 MiB. Per request (latency, result, anon peak, samples in window, idle anon at +1.5 s / +3.0 s): 1: 2.80 s, 0, 404 MiB, n=111, 176/178; 2: 2.55 s, 0, 404, n=101, 178/180; 3: 2.61 s, 0, 404, n=113, 180/182; 4: 2.60 s, 0, 404, n=112, 180/180; 5: 2.65 s, 0, 404, n=110, 180/178; 6: 2.81 s, 0, 404, n=109, 178/180; 7: 2.60 s, 0, 404, n=108, 180/178; 8: 2.62 s, 0, 404, n=103, 180/178; 9: 2.60 s, 0, 404, n=106, 182/178; 10: 2.62 s, 0, 404, n=103, 180/180. Idle-window sampler last/max: 172-180 / 178-182 MiB with no upward trend. After all ten: memory.peak 414 MiB, memory.current 188 MiB, oom_kill 0. Server log 'seconds' 2.5452-2.8267. Logs: .../final/container/mem10_v33.log, mem10_anon_timeseries.txt, mem10_container.log.",
+     "severity": "info"
+    },
+    {
+     "claim": "Workers are recycled after any body >= 8 MiB without losing a request",
+     "verified": true,
+     "evidence": "workers.py in the zip: MAX_REQUESTS_PER_WORKER = 50, RECYCLE_BODY_BYTES = 8 << 20, 'retire = served >= MAX_REQUESTS_PER_WORKER or size >= RECYCLE_BODY_BYTES' (line 132), self._retire(worker, \"recycled\") (line 316). Fresh container 'verify-recycle' on 127.0.0.1:19780: /model workers before {spawned 1, recycled 0, live 1}; after big #1 (result 0) {spawned 2, recycled 1, live 1}; after big #2 (result 0) {spawned 3, recycled 2, live 1}; benign afterwards -> 0, counters unchanged {spawned 3, recycled 2}. Worker PID in /proc changed 7 -> 27 -> 41 across the two large bodies while PID 1 stayed. Note: recycling is not written to the container log (only the /model counters show it), so the gate log alone cannot evidence it.",
+     "severity": "info"
+    },
+    {
+     "claim": "Stalled upload (Content-Length 4, 2 bytes sent) is answered 1 within 5 s and a benign PE 50 ms later is scored 0",
+     "verified": true,
+     "evidence": "Fresh v33 container 'verify-probe' on 127.0.0.1:19760; raw-socket probe script .../final/container/probes.py (log probes_v33.log): '[stalled] response after 4.52 s: status=HTTP/1.1 200 OK body={\"result\": 1}' (server log: msg slow_upload, bytes 4, seconds 4.5128); '[stalled+50ms] benign PE (1442184 B) -> 0 in 0.075 s' (course-set goodware 029a261a\u2026, server seconds 0.0454). Document claims 4.52 s and 0 \u2014 matches.",
+     "severity": "info"
+    },
+    {
+     "claim": "After 45 s idle a benign PE is still scored 0 (idle workers no longer exit after 30 s)",
+     "verified": true,
+     "evidence": "Same container: '[idle] sleeping 45 s' then '[after-45s-idle] benign PE (1442184 B) -> 0 in 0.048 s'; server log 'classified result 0 reason scored seconds 0.0361', worker_failed stayed 0. Document's probe used a 40 s gap; 45 s also passes.",
+     "severity": "info"
+    },
+    {
+     "claim": "One byte per 0.5 s drip upload is answered 1 within ~5 s",
+     "verified": true,
+     "evidence": "Same container, Content-Length 40 declared: '[drip] 9 bytes sent over 4.56 s; response at 4.56 s: status=HTTP/1.1 200 OK body={\"result\": 1}' (server log: slow_upload, bytes 40 declared, seconds 4.5045); benign PE after the drip -> 0 in 0.049 s. Document claims 4.51 s \u2014 matches within 50 ms.",
+     "severity": "info"
+    },
+    {
+     "claim": "The zip builds and the resulting image serves /health, /model (workers mode process, 1, budget 4.5) and scores a benign PE 0",
+     "verified": true,
+     "evidence": "Extracted to the fresh dir .../final/container/zip_extract_v33 (29 files); 'docker build -t mlsec-verify-fromzip:scratch <dir>' rc=0 (10 CACHED layers, image 98baa4abc420, 764 MB; log fromzip_build.log). Ran 'docker run -d --rm --name verify-fromzip -m 1g --cpus 1 --read-only --tmpfs /tmp -p 127.0.0.1:19770:8080 mlsec-verify-fromzip:scratch': ready after 3 s; /health -> {\"status\": \"ok\"} [http 200]; /model -> model_name ensemble-v33, threshold 4.081908667053039, budget_seconds 4.5, workers {spawned 1, live 1, mode \"process\", workers 1}; the 'ready' log line adds worker_mode process, max_body_bytes 67108864; benign PE 029a261a\u2026 (1,442,184 B) -> {\"result\": 0} in 0.085 s; 'MZ garbage' -> {\"result\": 1}. Note the /model JSON itself has no worker_mode/max_body_bytes keys (only workers.mode); the document's package_v33.log line 'workers: process 1 4.5' is consistent with that. Container stopped and the scratch tag removed afterwards (docker rmi: Untagged mlsec-verify-fromzip:scratch); docker ps -a shows no containers.",
+     "severity": "info"
+    },
+    {
+     "claim": "Gate script hygiene: the comment says 'no network' but docker run passes no --network none; the 'memory.stat now' line's awk quoting is broken and dumps the whole memory.stat twice; ports are chosen in 19000-19999",
+     "verified": true,
+     "evidence": "container_gate.sh line 2 comment '1 CPU, 1 GiB, no network' vs line 13 'docker run -d --rm --name \"$NAME\" -m 1g --cpus 1 --read-only --tmpfs /tmp -p \u2026' (default bridge network). The line 'memory.stat now \u2026' prints the full memory.stat file twice both in my run and in the document's cited container_gate_v33_final_quiet_memsplit.log (the escaped quotes inside sh -c do not survive), so the intended 'anon=\u2026 file=\u2026' summary is never produced; the separate 20 ms sampler line is the one that carries the anon figure and it works. PORT=$((19000 + RANDOM % 1000)) can pick ports below 19700, so I ran a copy with 19700 + RANDOM % 300 (only change). None of this affects the numbers.",
+     "severity": "minor"
+    },
+    {
+     "claim": "The largest 'large file' test input sits 345,200 bytes under the 64 MiB body cap, so the gate never exercises the oversize path",
+     "verified": true,
+     "evidence": "server.py: MAX_BODY_BYTES = int(os.environ.get(\"DF_MAX_BODY_BYTES\", 64 * 1024 * 1024)) = 67,108,864; largest goodware2 file 52188f917b378f00\u2026bin = 66,763,664 bytes. A benign PE larger than 64 MiB would be answered via the 'oversize' counter path rather than scored; that path was not measured here and the document does not mention it.",
+     "severity": "info"
+    }
+   ],
+   "notes": "Slice: shipped container and zip. Every claim in the \"Memory follow-up\" and \"Re-verification\" sections that falls in this slice reproduced: gate on mlsec-defender:v33 (id aedfdc7085b8) TP=50 FN=0 FP=0 TN=50, p95 42 ms, six 62-67 MB files 2.02-2.90 s all 0, anon max 411 MiB / idle 185 MiB (doc 410/184), oom_kill 0; ten sequential 66.8 MB requests each peaked at exactly 404 MiB anon with idle 172-182 MiB and no growth (recycle counter +1 per large body, worker PID replaced each time); stalled upload -> 1 at 4.52 s, benign 50 ms later -> 0, 45 s idle -> 0, drip -> 1 at 4.56 s; zip sha256 matches, contains defender/workers.py, its defender/ modules are byte-identical to the tree, it builds and the from-zip image serves /health, /model (process, 1 worker, budget 4.5) and scores a benign PE 0. Only discrepancy: my gate's cgroup peak was 435 MiB vs the document's 603 MiB, explained by page cache (file=172 MB in the document's run, 0 in mine); the document's figure is the conservative one. Host was not quiet during the gate (load 9.6-13.7) and the results still held. Safety: the gate POSTs the course-set malware bytes to the sandboxed localhost container (that is what the requested script does; nothing was executed, copied or sent elsewhere); the malware directory was otherwise untouched. No repository file modified, no git; all containers (verify-mem10, verify-probe, verify-recycle, verify-fromzip, the gate's gate_v33verify_*) stopped; scratch image mlsec-verify-fromzip:scratch removed. Artifacts: /private/tmp/claude-501/-Users-seshadithyasaravanan-Desktop-CSCE-704-Model/162af773-f9f6-4002-89df-456c9332050c/scratchpad/final/container/{gate_v33_verify.log, mem10_v33.log, mem10_anon_timeseries.txt, mem10_container.log, probes_v33.log, probes_container.log, fromzip_build.log, container_gate_p197.sh, sampler_in_container.py, mem10_driver.py, probes.py, zip_extract_v33/}."
+  },
+  {
+   "verdict": "PASS",
+   "findings": [
+    {
+     "claim": "(1) Idle exit regression is fixed in-process: WorkerPool(lambda b: 0, n_workers=1) with the default warm-up survives 45 s idle and the next classify is scored by the same child.",
+     "verified": true,
+     "evidence": "Script /private/tmp/claude-501/-Users-seshadithyasaravanan-Desktop-CSCE-704-Model/162af773-f9f6-4002-89df-456c9332050c/scratchpad/final/regressions/idle_inprocess.py (python -I). Child pid 35517 sampled with `ps -o pid=,stat=,etime=,rss=` every 5 s: state `S` at t=5.0,10.0,15.0,20.1,25.1,30.1,35.1,40.1,45.2 s, idle queue size 1 throughout. After 45.17 s idle, classify(b'x', monotonic()+2) -> [0, 'scored'] in 0.0005 s; stats {spawned:1, killed_overrun:0, died:0, recycled:0, respawn_failed:0, live:1}; same_pid true; second classify also [0,'scored'].",
+     "severity": "info"
+    },
+    {
+     "claim": "(1b) Idle exit regression is fixed over HTTP with the deployed single-model configuration: after 45 s with no request a benign PE is answered {\"result\": 0} with log reason 'scored', and the worker child never died.",
+     "verified": true,
+     "evidence": "Server started by /private/tmp/claude-501/-Users-seshadithyasaravanan-Desktop-CSCE-704-Model/162af773-f9f6-4002-89df-456c9332050c/scratchpad/final/regressions/server_suite.py as `.venv/bin/python -I -c \"import sys, runpy; sys.path.insert(0, '<defender_product>'); runpy.run_module('defender.server', run_name='__main__')\"` (the -I equivalent of `-m defender.server`; -I/-P drops cwd from sys.path), cwd defender_product, env DF_MODEL_DIR=models/rf_adv DF_MALWARE_THRESHOLD=0.820932 DF_WORKERS=1 DF_HOST=127.0.0.1 DF_PORT=19701 OMP_NUM_THREADS=1; /health ok 0.52 s after start; ready line reports NFS_adv_all_0.6, threshold 0.820932, budget_seconds 4.0, manifest_verified true. Worker child pid 35521 (ppid 35520) state `S` at every 5 s sample through 45.4 s. After 45.43 s idle, POST 7z.exe (468,992 B) -> HTTP 200 {\"result\": 0} in 0.0194 s; log line {\"msg\": \"classified\", \"result\": 0, \"reason\": \"scored\", \"bytes\": 468992, \"seconds\": 0.0163}; /model workers {spawned:1, died:0, live:1}. Full log: .../regressions/server.log.",
+     "severity": "info"
+    },
+    {
+     "claim": "(2) Drip fix holds: Content-Length 40 with one byte every 0.5 s is answered {\"result\": 1} at the 4.0 s budget, not after the drip completes, and the next benign PE is scored 0.",
+     "verified": true,
+     "evidence": "Against the same server (DF_REQUEST_BUDGET_SECONDS unset -> 4.0 default): raw socket, headers with Content-Length: 40, bytes sent at 0.51,1.01,1.51,2.02,2.54,3.04,3.54,4.04 s; response `{\"result\": 1}` received 4.0034 s after the headers (7 of 40 bytes delivered); log {\"msg\": \"slow_upload\", \"bytes\": 40, \"seconds\": 4.0028}; counts slow_upload 1; workers died 0, live 1. Immediately after: POST 7z.exe -> {\"result\": 0} in 0.0052 s. (The images set DF_REQUEST_BUDGET_SECONDS=4.5, so the container figure of 4.51 s in the document is consistent with the 4.00 s measured here at budget 4.0.)",
+     "severity": "info"
+    },
+    {
+     "claim": "(3) Small-body buffering holds with DF_WORKERS=1: a stalled upload (Content-Length 4, 2 bytes sent, socket held open) does not hold the single worker; a benign PE on a second connection 50 ms later is answered 0 promptly while the stalled one is still pending.",
+     "verified": true,
+     "evidence": "Stalled connection A sent headers + b'ab'; 50 ms later POST 7z.exe on connection B -> {\"result\": 0} in 0.0171 s (done 0.0678 s after A started); a non-blocking MSG_PEEK on A at that instant returned nothing (`<nothing yet>`). A was answered `{\"result\": 1}` at 4.0032 s; log {\"msg\": \"slow_upload\", \"bytes\": 4, \"seconds\": 4.0021}. /model after: workers {died:0, killed_overrun:0, live:1}, counts {benign:3, slow_upload:2}.",
+     "severity": "info"
+    },
+    {
+     "claim": "(4) Recycling after a body >= 8 MiB works without losing a request: a 9 MB zero-padded benign PE is scored, workers.recycled increments, a fresh child replaces the old one, and the next request is scored normally.",
+     "verified": true,
+     "evidence": "POST 9,437,184-byte body (7z.exe + zeros) -> {\"result\": 0} in 0.030 s; log {\"msg\": \"classified\", \"reason\": \"scored\", \"bytes\": 9437184, \"seconds\": 0.0286}. /model workers before {spawned:1, recycled:0}, after {spawned:2, recycled:1, died:0, live:1}; child pid changed 35521 -> 36028. Next POST 7z.exe -> {\"result\": 0} in 0.0075 s. Repeating (wmplayer.exe -> 0 in 0.0047 s; 9 MB again -> 0 in 0.0179 s) gave recycled 2, spawned 3, live 1, child 36034. Server stopped with SIGINT: returncode 0, log 'shutdown', no leftover children, nothing listening on 19701.",
+     "severity": "info"
+    },
+    {
+     "claim": "(5a) 30 consecutive overruns leak no file descriptors and no processes: every overrun is answered at its deadline, the worker is killed and replaced, no zombies remain.",
+     "verified": true,
+     "evidence": "Script .../regressions/overrun_inprocess.py: WorkerPool(score_fn=sleep 5 s, n_workers=1); 30x classify(b'x', now+0.3) -> all [1,'overrun'], max 0.3086 s. Parent fds (len(os.listdir('/dev/fd'))) 7 before and 7 after (delta 0; 6 after close()). Children of the parent after the run: exactly one live worker (pid 36917, state S) plus the transient `ps` helper; zero zombies. Stats: spawned 31, killed_overrun 30, died 0, respawn_failed 0, live 1. Each respawn took ~5.01-5.03 s because the warm-up runs score_fn on WARMUP_BYTES (which sleeps 5 s in this stub); with the real model the recycled worker was back within the 1.5 s I waited.",
+     "severity": "info"
+    },
+    {
+     "claim": "(5b) A worker CAN be lost permanently: if the background respawn fails RESPAWN_ATTEMPTS=5 times (about 3 s of backoff), the pool never tries again, and with DF_WORKERS=1 every later request waits its full budget and is answered 1 ('saturated') forever, even after forking works again.",
+     "verified": true,
+     "evidence": "Simulation in overrun_inprocess.py: pool._ctx.Process replaced by a class raising OSError(EAGAIN); one overrun -> stats {killed_overrun:1, respawn_failed:1, live:0}; after restoring the real fork context, classify(b'x', now+1.0) -> [1,'saturated'] in 1.001 s and again [1,'saturated'] in 1.000 s; stats_end live 0, spawned still 1. Code: workers.py `_spawn(block=False)` ends its for-loop with `respawn_failed += 1` and returns; nothing else ever calls `_spawn` (classify_stream only spawns when it retires a worker it holds). Trigger requires fork or warm-up to fail 5 times in ~3 s (e.g. EAGAIN/ENOMEM near the 1 GiB cgroup limit), so it is unlikely but unrecoverable without a restart; /model would show respawn_failed>0 and live<workers.",
+     "severity": "major"
+    },
+    {
+     "claim": "A request whose deadline has already passed when it obtains a worker kills the healthy idle worker (counted as 'overrun') instead of just answering 1; the answer is still on time but the single worker is needlessly replaced.",
+     "verified": true,
+     "evidence": "Script .../regressions/past_deadline.py: WorkerPool(lambda b: 0, n_workers=1); classify(b'x', monotonic()-0.001) -> [1,'overrun'] in 0.0008 s; stats killed_overrun 1, spawned 2; worker pid 36564 -> 36568. Code path: workers.py classify_stream: `_idle.get(timeout=0)` succeeds, `settimeout(max(0.0,...))`, then `budget <= 0` raises socket.timeout -> `_retire(worker,'overrun')`. Reachable from server.py only in the race where the body's last byte lands within microseconds of the deadline; with DF_WORKERS=1 the respawn window then makes concurrent requests wait.",
+     "severity": "minor"
+    },
+    {
+     "claim": "The keep-alive idle timeout is not what the code documents: the client socket's timeout is set to the remaining request budget during the body read and never restored, so after a request the server closes an idle keep-alive connection after ~budget (4.0 s here, 4.5 s in the images), not KEEPALIVE_IDLE_SECONDS=60.",
+     "verified": true,
+     "evidence": "Probe in server_suite.py: on one connection POST 7z.exe -> {\"result\": 0}; sleep 6 s; second POST on the same socket -> BrokenPipeError(32); sleep 2 s instead -> {\"result\": 0} in 0.0102 s. Mechanism: server.py `reader`/`_read_exactly` call `self.connection.settimeout(budget)` and only `Handler.setup` ever sets 60 s; stdlib `handle_one_request` on TimeoutError sets close_connection and drops the socket. No grading impact: tools/evaluate.py and dataset/tools/grade_http.py open a new connection per sample; a client that reuses connections with >4 s gaps would see resets/retries. Applies equally to ensemble_server.py (it reuses base.Defender/serve/Handler).",
+     "severity": "minor"
+    },
+    {
+     "claim": "Remaining theoretical late-answer path: log() writes to stdout before _respond() (do_POST and Defender._finish); if the container's stdout pipe/log driver stalls (Docker default blocking log mode), the write blocks and the answer is delayed past the deadline.",
+     "verified": false,
+     "evidence": "From the code only (server.py: `log(...)` precedes `self._respond(200, ...)` in do_POST; `_finish` logs every non-scored reason; sys.stdout.write with flush on a full pipe blocks). Not exercised; requires an external log consumer stall, which the normal json-file driver does not produce.",
+     "severity": "info"
+    },
+    {
+     "claim": "Cosmetic/accounting notes from the read: a client that stalls a streamed (>8 MiB) upload makes the parent kill the worker and count it under 'died' (misattributed; each such stall costs a fork+warm-up with DF_WORKERS=1); on macOS `_close_inherited_sockets` is a no-op (/proc absent) so forked workers inherit client and listening sockets, which is irrelevant to the Linux images.",
+     "verified": true,
+     "evidence": "workers.py classify_stream: on `chunk == b''` -> `_retire(worker, 'died')`, `_spawn_async`, return 'slow_upload'. `_close_inherited_sockets` returns early when '/proc/self/fd' is not a directory. In my HTTP runs no streamed upload stalled, so died stayed 0 throughout.",
+     "severity": "info"
+    }
+   ],
+   "notes": "Slice verdict: all five required checks pass on the current tree (defender/workers.py, defender/server.py) with python -I, in-process and over HTTP on 127.0.0.1:19701 with DF_MODEL_DIR=models/rf_adv, DF_MALWARE_THRESHOLD=0.820932, DF_WORKERS=1, OMP_NUM_THREADS=1 (budget 4.0 s default; the images use 4.5). The document's claims for the two regressions (idle exit, drip) and the recycling fix are reproduced: 45 s idle in-process and over HTTP -> (0,'scored') with died 0 and the same child pid in state S throughout; drip answered 1 at 4.003 s; stalled 4-byte upload does not block a concurrent benign (answered 0 in 17 ms); 9 MB body scored 0 with recycled 0->1 and the next request scored; 30 overruns: fd delta 0, one live child, no zombies. Two code-level defects found and demonstrated, neither violating the deadline: (major) a respawn that fails 5 times is never retried, so the single worker is lost for good and every later request is answered 1 after its full budget; (minor) keep-alive connections are closed after ~budget instead of 60 s because the per-request socket timeout is never restored (no effect on the per-connection evaluators). Also (minor) a past-deadline request kills a healthy worker. Every server started was stopped (returncode 0, no children, nothing listening on 19700-19760); no repository file modified, no git, nothing under the quarantine/malware folders touched. Artifacts: /private/tmp/claude-501/-Users-seshadithyasaravanan-Desktop-CSCE-704-Model/162af773-f9f6-4002-89df-456c9332050c/scratchpad/final/regressions/{idle_inprocess.py,idle_inprocess.out,server_suite.py,server_suite.out,server.log,overrun_inprocess.py,overrun_inprocess.out,past_deadline.py}."
+  },
+  {
+   "verdict": "FAIL",
+   "findings": [
+    {
+     "claim": "Suite: 108 tests on branch release/sure-shot-v3.1 (REVIEW_RESPONSE finding 9)",
+     "verified": false,
+     "evidence": "`cd defender_product && .venv/bin/python -I -m unittest discover -s tests -t .` -> 'Ran 108 tests ... OK' on the WORKING TREE, but the tree contains untracked tests/test_ember2024.py (5 tests; `git ls-tree release/sure-shot-v3.1 -- defender_product/tests/test_ember2024.py` is empty, as is defender/ember2024.py). Loading only the 15 test modules that exist on the branch (scratch runner /private/tmp/claude-501/-Users-seshadithyasaravanan-Desktop-CSCE-704-Model/162af773-f9f6-4002-89df-456c9332050c/scratchpad/final/docprov/run_branch_modules.py) gives 'loaded tests: 103, ran: 103 failures: 0 errors: 0 skipped: 0'; static `def test_` count at 39c62b5 = 103, at c6553d2/3b579be = 89. The branch has 103 tests; 108 is the tree-with-v5-work count. (The side claim 'the message of commit 3b579be says 96' is correct: `git show 3b579be` says 'Tests: 92 -> 96'.)",
+     "severity": "major"
+    },
+    {
+     "claim": "README test count was corrected (finding 7: 'README corrected (... test count ...)')",
+     "verified": false,
+     "evidence": "defender_product/README.md:239 still reads 'tests/                 94 tests incl. sklearn-derived golden vectors, deadline and integrity tests'. 94 was the measured count at commit c6553d2 ('Ran 94 tests' quoted in review_response_verification.json); the suite is now 103 on the branch / 108 in the tree. README disagrees with the response document's own 108 either way.",
+     "severity": "major"
+    },
+    {
+     "claim": "Finding 3: 'Relabelled throughout' \u2014 no doc still calls rf_adv's training the Lucas 'train on the attack' recipe or functionality-preserving",
+     "verified": false,
+     "evidence": "dataset/docs/PAPER_CONCEPTS.md:97 still reads \"We implement the 'train on the attack' recipe (rf_adv, train_nfs_adversarial.py, cited explicitly as the Lucas recipe) and it works on held-out recent_test (C 7%\u219255%, E 21%\u219276%, COMPARISON \u00a710)\" and :67 \"rf_adv uses functionality-preserving FEATURE transforms with held-out donors\". Both contradict the response's own statement that train_nfs_adversarial.py is random, unguided augmentation. Also: PAPER_CONCEPTS.md contains 114 literal '\u2026' characters \u2014 table cells were written truncated. (COMPARISON_REPORT.md:253 'the Lucas fix' and :72 '99.99 %' are errata, fine; V4_STATUS.md:54 'train on the attack' is a future-work item, fine.)",
+     "severity": "major"
+    },
+    {
+     "claim": "'The course set peaks at ~230 MiB' (What remains open)",
+     "verified": false,
+     "evidence": "No final-image log shows ~230 MiB: container_gate_v33_final_quiet_memsplit.log (image aedfdc7085b8) 'mem after course set: 369 MiB peak: 382 MiB'; container_gate_v33_final_amd64_quiet.log (43716ef66a14) 'peak: 310 MiB'; container_gate_v33_final_1worker_quiet.log 214 MiB. ~230 matches only intermediate builds (newserver 240, stream 227). review_response_verification.json already flagged this bullet as stale ('final 1-worker logs show 214 MiB (arm64) / 316 MiB (amd64)') and it was not corrected.",
+     "severity": "minor"
+    },
+    {
+     "claim": "Memory follow-up: 'anonymous memory reaching ~950 MiB while a 67 MB benign file is scored with two forked workers (idle ~400 MiB)'",
+     "verified": false,
+     "evidence": "No log in reports/review-response-2026-10-21/ contains a two-worker anon split: container_gate_v33_final_quiet_memsplit.log was overwritten by the 1-worker run (anon max 410, idle 184). The 2-worker numbers survive only as a quote inside review_response_verification.json ('_memsplit.log (2 workers): anon max 952 MiB, idle 313 MiB') and in commit 3b579be's message ('952 with two'). 'idle ~400 MiB' matches neither the quoted 313 MiB anon nor is it labelled as the 398 MiB cgroup figure in container_gate_v33_final_quiet.log. The 949 MiB anon in container_gate_v33_final_1worker_amd64_quiet.log is a ONE-worker amd64 run, not this claim.",
+     "severity": "minor"
+    },
+    {
+     "claim": "'An in-process profile attributes ~400 MiB of transient to the EMBER feature extraction itself on such a file'",
+     "verified": false,
+     "evidence": "No artifact: grep for '400 MiB', 'tracemalloc', 'profil' across review_response_reproductions.json, review_response_verification.json and every log in reports/review-response-2026-10-21/ and reports/v33-2026-10-20/ returns nothing for this figure.",
+     "severity": "minor"
+    },
+    {
+     "claim": "'each idle worker adds ~100 MiB' / 'idle memory drops by ~100 MiB'",
+     "verified": false,
+     "evidence": "No artifact states this. Nearest derivable numbers: quoted 2-worker idle anon 313 MiB (verification JSON) minus final 1-worker idle 184 MiB (memsplit log) = 129 MiB; cgroup 398 MiB (container_gate_v33_final_quiet.log, 2 workers) vs 209 MiB (1worker_quiet) = 189 MiB.",
+     "severity": "minor"
+    },
+    {
+     "claim": "'Profiling attributed 509 MiB of it to EMBER's byte histogram (np.bincount casts the whole buffer to 64-bit)' and 'Chunked histogram (identical counts, 32 MiB transient)'",
+     "verified": true,
+     "evidence": "Implementation exists: defender/ember_compat.py:43-57 (_HIST_CHUNK = 4 << 20, summed np.bincount per chunk, patched onto ember_features.ByteHistogram.raw_features at :161); tests/test_ember_compat_memory.py has 3 tests (synthetic equality, real-PE equality, tracemalloc peak < 48 MiB on a 32 MiB input). The 509 MiB figure appears only in docstrings (ember_compat.py:50, test file line 3), no profiling log; it is arithmetic-consistent (66,763,664 B x 8 = 509.3 MiB).",
+     "severity": "info"
+    },
+    {
+     "claim": "Finding 5: 'on real score dumps every stored headline was within +1 sample of the correct value and AUC within 0.006'",
+     "verified": false,
+     "evidence": "review_response_reproductions.json finding 4 says 'the largest AUC error observed is +0.0062'; 0.0062 is not 'within 0.006' (rounding understatement).",
+     "severity": "info"
+    },
+    {
+     "claim": "'(course-set files take < 100 ms each)' and README 'score in well under 100 ms'",
+     "verified": true,
+     "evidence": "arm64 final log max=67ms (memsplit), 60ms (1worker); but the amd64 emulated gates show max=170ms (container_gate_v33_final_amd64_quiet.log) and 189ms (1worker_amd64). True for the native-arm64 context in which it is stated; not true under emulation.",
+     "severity": "info"
+    },
+    {
+     "claim": "'Emulation is roughly twice as slow as native x86'",
+     "verified": false,
+     "evidence": "No native x86 measurement exists (the doc says so itself). Observed ratios are emulated-amd64 vs native-arm64: p95 76 vs 40 ms, 67 MB file 3.95 vs 2.81 s.",
+     "severity": "info"
+    },
+    {
+     "claim": "Image ids: mlsec-defender:v33 arm64 aedfdc7085b8\u2026, mlsec-defender:v33-amd64 43716ef66a14\u2026; both set DF_WORKER_MODE=process, DF_REQUEST_BUDGET_SECONDS=4.5, DF_WORKERS=1",
+     "verified": true,
+     "evidence": "`docker inspect --format '{{.Id}} {{.Architecture}} {{.Created}} {{.Config.Env}}'`: sha256:aedfdc7085b8ec9e627ffa2fb4a2e7061876ced27c05eb92090f4c884c24969d arm64 2026-10-22T16:54:07Z and sha256:43716ef66a140fc47aca707a22bb6d27c81e0287b78ea96b2f249f18ac342ed6 amd64 2026-10-22T16:54:11Z; both Env contain DF_REQUEST_BUDGET_SECONDS=4.5 DF_WORKER_MODE=process DF_WORKERS=1 DF_RF_DIR=/app/models/rf_adv DF_FUSION=/app/models/fusion_v33.json. memsplit log names image 5bcf\u2026\u2192 no: memsplit names sha256:aedfdc7085b8, amd64 final log names sha256:43716ef66a14.",
+     "severity": "info"
+    },
+    {
+     "claim": "'built from defender_product/Dockerfile.ensemble at the tip of release/sure-shot-v3.1'",
+     "verified": true,
+     "evidence": "`docker run --rm --entrypoint sh mlsec-defender:v33 -c 'sha256sum defender/*.py models/rf_adv/manifest.json models/rf_adv/operating_point.json'` matches `shasum -a 256` of the tree for all 12 defender/*.py plus both model files (SAME on every line); every tracked file under defender_product, dataset/docs, dataset/tools has `git hash-object` equal to `git rev-parse release/sure-shot-v3.1:<path>` (zero DIFFERS). Tip is 39c62b5 (committed 2026-10-22 12:00:42 -0500, six minutes after the image build at 11:54 CDT, same content). /app contains only defender, models{ember_ft_v33,ember_gbdt,fusion_v33.json,rf_adv}, requirements.ensemble.txt, LICENSE.upstream.",
+     "severity": "info"
+    },
+    {
+     "claim": "mlsec-defender-submission-v33.zip sha256 08440fb2f35e2caecba38b089e4e38139b2d4a5b4b2336ac179343dd077ad699; package_submission.sh v33 starts the from-zip image and requires it to serve; the 2026-10-21 zip lacked defender/workers.py and could not start",
+     "verified": true,
+     "evidence": "`shasum -a 256 mlsec-defender-submission-v33.zip` = 08440fb2\u2026ad699 (45,038,277 B, Oct 22 11:58); `unzip -l` lists defender/workers.py (15,355 B). reports/review-response-2026-10-21/package_v33.log: 'zip: 43M ... 34 files', 'serving modules: 12', 'from-zip image serves: 7z.exe -> {\"result\": 0} ; workers: process 1 4.5'. dataset/tools/package_submission.sh:25-34 runs the from-zip image on 127.0.0.1:$((19600+RANDOM%300)), polls /health, POSTs a benign sample and exits 1 unless {\"result\": 0}. The older reports/v33-2026-10-20/package_v33.log shows 33 files / 11 modules (no serve check). review_response_verification.json: 'docker run ... mlsec-defender:v33-fromzip exits 1 within 6 s with ModuleNotFoundError: No module named defender.workers'.",
+     "severity": "info"
+    },
+    {
+     "claim": "Finding 1 numbers: FPR 1,051/100,000 = 1.051 % (Wilson 0.990\u20131.116 %), TPR 76,728/100,000, 751/70,000 = 1.073 %, operating_point.json names test.jsonl and is annotated by hand, not in manifest; package_model.py --allow-test-calibration and note",
+     "verified": true,
+     "evidence": "review_response_reproductions.json finding 1: 'FPR 1,051/100,000 = 1.051 % (Wilson 95 % 0.98965-1.11611 %) and TPR 76,728/100,000 = 76.728 %; ... 751/70,000 = 1.07286 %'. defender_product/models/rf_adv/operating_point.json: calibrated_on 'work/ember_official/test.jsonl', threshold 0.8209317347072365, 'note': 'empirical calibration ... 1,051/100,000 = 1.051% ... 751/70,000 = 1.073%' (mtime Oct 22 11:46:15); `grep -c operating_point manifest.json` = 0. dataset/tools/package_model.py:61 '--allow-test-calibration', :46 writes 'note'. Image copy of operating_point.json is byte-identical to the tree.",
+     "severity": "info"
+    },
+    {
+     "claim": "Finding 2 reproduction numbers (10 of 12 timed-out jobs stayed queued; 2-of-4-byte upload got no answer; native call 6.0 s returned 'scored') and fix verification (tests, stalled_upload_probe.log, container_gate_v33_final_*)",
+     "verified": true,
+     "evidence": "reproductions.json finding 2: 'Native GIL sleep(6): classify() returned (0,\"scored\") after 6.004 s / 6.007 s'; '12 requests at budget 0.01 s ... _work_queue.qsize()=10 with 2 jobs running; all 12 one-MiB input buffers still referenced'; 'Content-Length 4 with 2 bytes sent -> NO response within 6.001 s'. tests exist: test_workers.py (10 tests incl. overrun kill, GIL native sleep, dead-worker replace, admission bound, no buffer retained, thread fallback, 3 regression tests), test_server_deadlines.py (6 tests: stalled upload, overrun, /model, DeployedConfigurationTest x2 using tests/common.py DEPLOYED_MODEL_DIR=models/rf_adv DEPLOYED_THRESHOLD=0.820932, DripUploadTest), test_entrypoints.py (2 tests). stalled_upload_probe.log: 'stalled upload (4 declared, 2 sent) -> {\"result\": 1} after 4.52s', 'benign PE 50 ms after the stall -> 0', 'idle 40 s, then benign PE -> 0', 'drip upload (1 byte / 0.5 s, 40 declared) -> 1 after 4.51s', counts slow_upload 2, worker_failed 0. server.py:71 logs thread mode as a warning; :193-196 read1.",
+     "severity": "info"
+    },
+    {
+     "claim": "Finding 4 (mock server at 5.2 s counted as TP; --deadline 5.0; late/missing/malformed/bool/500 count against the detector; no abort) and finding 5 tests",
+     "verified": true,
+     "evidence": "reproductions.json finding 4: 'failed False after 5.208 s, and main() counts it as a true positive'. tools/evaluate.py:62 DEADLINE_SECONDS = 5.0, :94 status != 200 is an error, :96 'type(result) is not int or result not in (0, 1)  # booleans are not answers', :151 --deadline; dataset/tools/grade_http.py:15 DEADLINE 5.0, :29 'type(res) is not int'. tests/test_evaluators.py: modes late/drop/malformed/boolean/http500 + test_unreadable_local_file_does_not_abort_the_run + grade_http test. tests/test_metrics.py: 3 tests, `for trial in range(100)` against sklearn roc_auc_score/average_precision_score and brute force. evaluate_models.py:33 threshold_for_fpr, :63-64 sklearn AUC/AP, :171 --dump-scores; package_model.py:42 uses E.threshold_for_fpr; dataset/tools/recompute_metrics.sh exists; *.pre-review.json and scores/{ember_temporal,recent_test,recent_drift}.npz present.",
+     "severity": "info"
+    },
+    {
+     "claim": "Recomputed comparison table (71.16/58.73/77.87 unchanged; rf_augmented 79.920\u219279.924; ROC \u22643e-5; PR \u22124.6e-4\u2026+1.4e-4; recent_test 38.11\u219238.34, 28.18\u219228.41, PR +0.0024; recent_drift 15.12 unchanged, 34.23\u219234.30, ROC \u22122.4e-4/+1e-5; rf_adv newly evaluated)",
+     "verified": true,
+     "evidence": "reports/review-response-2026-10-21/recompute_metrics.log before/after table: supplied tpr 0.71156/0.71156, retrained 0.58728, rf_tuned 0.77868; rf_augmented 0.79920\u21920.79924 (+0.00004 = 1/25,000); roc deltas +0.00003/0/\u22120.00001/+0.00001; pr deltas \u22120.00046/+0.00009/+0.00003/+0.00014; recent_test rf_tuned 0.38106\u21920.38337, rf_augmented 0.28176\u21920.28406 (+0.00231 = 1/433), pr +0.00237/+0.00233; recent_drift supplied 0.15120 unchanged, roc \u22120.00024; rf_tuned 0.34227\u21920.34296 (+0.00069 = 1/1454), roc +0.00001. dataset/results/ember_temporal.json contains rf_adv tpr_at_fpr_0.01 0.76536 ci95 [0.7601, 0.7706]; ember_aug.json rf_augmented 0.79924.",
+     "severity": "info"
+    },
+    {
+     "claim": "Finding 6 counts (0 SHA overlap; 84/433 duplicates; 6/60 benign twins; 1/60 = 1.7 % Wilson 0.3\u20138.9 %; 186/349 = 53.3 %), split_recent flags, fusion fit excludes the 84 duplicates",
+     "verified": true,
+     "evidence": "reproductions.json finding 6: 'SHA overlap 0. 84/433 test-malware rows have attributes identical ... leaving 349', '6/60 test benign rows are feature-identical to train benign', '254/433 = 58.66% overall, 186/349 = 53.30%', '1/60 held-out (1.67%, Wilson 95% 0.3-8.9%)'. dataset/tools/split_recent.py:28-30 --group-duplicates/--temporal/--keep-unparseable. dataset/tools/train_v31.py:131-132 (and train_v3.py:78-79) drop sha256 in dataset/work/exp/recent_test_nfs_dups.json from the fusion fit.",
+     "severity": "info"
+    },
+    {
+     "claim": "Findings 7, 8, lit.: 66 % belongs to rf_augmented, rf_adv 58.66 %; hypergeometric 67.64 %; residual phrase audit",
+     "verified": true,
+     "evidence": "verification.json: 'adversarial_training.json: rf_adv 254/433=58.66 %, rf_augmented 287/433=66.28 %'; reproductions.json: 'k=12,500 exact 0.676428 (67.6428 %)'. Grep over dataset/docs + README: 'adversarially hardened', 'one env var away', 'not reachable', 'structurally caps', 'is the ceiling', '26 tests', '92 tests', '96 tests' -> zero occurrences outside REVIEW_RESPONSE's own quotations; '99.99' only as the COMPARISON_REPORT.md:72 erratum; 'by construction' remaining at PITFALL_AUDIT.md:119 (HashingVectorizer extractor drift \u2014 a different, defensible claim), DATASHEET.md:106 and THREAT_MODEL.md:61 (benign usage), COMPARISON_REPORT.md:204 (corrected wording). SOTA_RESEARCH.md:92 now says 'the NFS 250k-hash models we tried stopped at'. Residual not in the grep list: RICHER_FEATURES_ENSEMBLE.md:3 'breaking the ~80% ceiling of the NFS' and :22 'Confirmed: the NFS ceiling was the clues'.",
+     "severity": "info"
+    },
+    {
+     "claim": "Memory figures: thread-pool v3.3 897 MiB; frozen v3 1024 MiB; first forked-worker build 1024 MiB; 1-worker gate log; final arm64 memsplit (p95 40 ms, 2.0\u20132.8 s, cgroup 603, anon 410, idle 184); amd64 (p95 76 ms, 3.0\u20133.95 s, earlier build 4.51 s, cgroup 517, anon 468, idle 239, course set \u2264 2.9 MB, ~310 MiB)",
+     "verified": true,
+     "evidence": "reports/v33-2026-10-20/container_gate_v33_quiet.log 'mem peak after large files: 897 MiB' (image aeb155943939, Oct 20, pre-workers.py); container_gate_v3_baseline_quiet.log 'ensemble-v3 ... 1024 MiB'; review-response/container_gate_v33_final_quiet.log (5bcf5df4b106) 1024 MiB; container_gate_v33_final_1worker_quiet.log 864 MiB peak, anon max 450; container_gate_v33_final_quiet_memsplit.log (aedfdc7085b8): p95=40ms, files 2.81/2.10/2.43/2.13/2.02/1.99 s all 0, peak 603 MiB, 'anon ... 3x (20 ms in-container sampler): max 410 MiB  idle now: 184 MiB', oom_kill 0; container_gate_v33_final_amd64_quiet.log (43716ef66a14): p95=76ms, 3.95/3.18/3.72/3.16/3.12/3.02 s, peak 517, anon 468, idle 239, 'peak: 310 MiB' after course set; container_gate_v33_final_1worker_amd64_quiet.log (bc4582dc1448) 66.8 MB 4.51 s. Course set: goodware max 2,862,648 B, malware max 1,314,816 B (stat only, 50+50 files). All gates TP=50 FN=0 FP=0 TN=50.",
+     "severity": "info"
+    },
+    {
+     "claim": "Re-verification section: idle workers exited after 30 s (35 s pause \u2192 1, in-process and shipped container); drip 1 byte/3 s \u2192 9\u201316 s; verifier's 20 ms sampler ~900 MiB rising; recycle after 50 requests or \u2265 8 MiB; respawn retry; five agents",
+     "verified": true,
+     "evidence": "review_response_verification.json (date 2026-10-22, verifiers_and_judge = 5 verifier dicts + 1 judge): 'every forked inference worker exits after ~30 s of idleness ... after 35 s idle -> {\"result\": 1} in 0.0006 s, worker_failed' and 'Shipped ensemble container mlsec-defender:v33 (sha256 1f77ff1ad049 ...) wmplayer.exe after 35 s idle -> 1'; 'one byte every 3.0 s -> HTTP 200 {\"result\": 1} first byte at 9.0214 s ... answer at 16.0215 s'; 'With a 20 ms in-container sampler ... fresh container 901 MiB and 896 MiB; after 10 prior large files 970 MiB' (up to 1001). Code: workers.py:41 REPLY_TIMEOUT = 30.0, :42 MAX_REQUESTS_PER_WORKER = 50, :43 RECYCLE_BODY_BYTES = 8 << 20, :195 'retried with backoff'; test_workers.py:113 test_idle_worker_does_not_exit_after_the_reply_timeout (REPLY_TIMEOUT = 0.3), :132/:148 recycling tests; test_server_deadlines.py:134 DripUploadTest (settimeout 0.25, 40 bytes). cmdline.py:_windows uses bytez.find on needles with no whole-body .lower() (only the 512-byte window is lowercased); note ember_compat.py:89 `low = bytes(bytez).lower()` still makes a full lowercase copy in the EMBER strings extractor, which the doc does not claim to have removed.",
+     "severity": "info"
+    },
+    {
+     "claim": "README configuration table matches Dockerfile / Dockerfile.ensemble ENV and code defaults; no duplicated or orphaned table header",
+     "verified": true,
+     "evidence": "Dockerfile:12-17 DF_MODEL_DIR=/app/models/rf_adv, DF_MALWARE_THRESHOLD=0.820932, DF_FEATURE_MODE=training, DF_REQUEST_BUDGET_SECONDS=4.5, DF_WORKER_MODE=process, DF_WORKERS=1; Dockerfile.ensemble:19-21 DF_REQUEST_BUDGET_SECONDS=4.5, DF_WORKER_MODE=process, DF_WORKERS=1 (model selection via DF_RF_DIR/DF_FUSION, no DF_MODEL_DIR/DF_MALWARE_THRESHOLD, as expected). README.md:161-170 table: rf_adv/0.820932/training/1/process/4.5 in the Image column; code defaults models/nfs (server.py:282), 0.25 (:283), 2 workers (:38), process (:39), 4.0 s (:37), 67108864 (:33), DF_STREAM_THRESHOLD 8 MiB (:43), keep-alive 60 s (:46) all match. `grep -nB1 '^|[-| ]+|$' README.md` shows exactly four tables, each separator preceded by its own header (lines 63/64, 77/78, 150/151, 161/162); the orphaned 3-column header the verifier reported at 159-160 is gone.",
+     "severity": "info"
+    }
+   ],
+   "notes": "Scope: every number/file in dataset/docs/REVIEW_RESPONSE_2026-09-21.md traced to reports/review-response-2026-10-21/, reports/v33-2026-10-20/, dataset/results/, the code, docker inspect, shasum and a live unittest run. Nothing under the malware/quarantine folders was executed or copied (only `stat` on file sizes); no repository file modified; only read-only git queries used; the one container run was `docker run --rm --entrypoint sh` with no ports.\n\nSummary: the serving measurements (course results 50/50 on every gate, p95 40/76 ms, large-file latencies, cgroup/anon/idle memory, 4.52/4.51 s probe timings, image ids, zip sha256, ENV values, recomputed metric table, finding-1/2/4/5/6/8 reproduction numbers, re-verification regressions) all tie exactly to a named artifact. The FAIL is for documentation provenance only:\n1. '108 tests on branch release/sure-shot-v3.1' is wrong \u2014 the branch has 103; 108 counts 5 untracked v5 tests (tests/test_ember2024.py) that are not on the branch. Commands: `cd defender_product && .venv/bin/python -I -m unittest discover -s tests -t .` -> Ran 108 tests OK; branch-only modules -> 103 ran, 0 failures/errors/skips.\n2. README.md:239 still says '94 tests' although the response claims the README test count was corrected.\n3. PAPER_CONCEPTS.md:97 and :67 still assert the Lucas 'train on the attack' recipe and 'functionality-preserving FEATURE transforms' for rf_adv (contradicting finding 3 'relabelled throughout'); the file also contains 114 literal '\u2026' truncations.\nClaims with NO artifact: '~400 MiB transient attributed to EMBER feature extraction by an in-process profile'; 'each idle worker adds ~100 MiB' / 'idle memory drops by ~100 MiB'; 'course set peaks at ~230 MiB' (stale: final logs show 382/310 MiB); 'two forked workers ~950 MiB anon (idle ~400 MiB)' survives only as a quote of an overwritten log inside review_response_verification.json (952/313) and the commit message; '509 MiB byte-histogram profiling' exists only as docstrings (arithmetic-consistent); 'emulation roughly twice as slow as native x86' has no native measurement. Rounding: 'AUC within 0.006' vs the artifact's 0.0062. Config table: consistent with both Dockerfiles and the code defaults, single header per table."
+  },
+  {
+   "ship": false,
+   "blocking_issues": [
+    "[provenance #1, major] Finding 9 row (REVIEW_RESPONSE line 25) says 'Suite: 108 tests on branch release/sure-shot-v3.1'. The branch (tip 39c62b5) has 103 tests (branch-only modules: 103 ran, 0 failures; static def test_ count 103). 108 is the working-tree count and includes the untracked tests/test_ember2024.py (5 v5 tests) that is not on the branch. A cited number whose artifact does not support it as stated.",
+    "[provenance #2, major] Finding 7 row (line 23) claims the README 'test count' was corrected; defender_product/README.md:239 still reads 'tests/ 94 tests incl. ...'. 94 was the c6553d2 count; it contradicts both the branch (103) and the response's own 108.",
+    "[provenance #3, major] Finding 3 row (line 19) claims 'Relabelled throughout', but dataset/docs/PAPER_CONCEPTS.md:97 still says \"We implement the 'train on the attack' recipe (rf_adv, train_nfs_adversarial.py, cited explicitly as the Lucas recipe)\" and :67 says \"rf_adv uses functionality-preserving FEATURE transforms with held-out donors\" -- both contradict the response's own statement that train_nfs_adversarial.py is random, unguided augmentation producing no bytes. The file also contains 114 literal '...' (U+2026) characters: its table cells were written truncated.",
+    "[provenance #4, minor but already flagged last round and not fixed] 'The course set peaks at ~230 MiB' (line 47) matches no final-image log: container_gate_v33_final_quiet_memsplit.log (aedfdc7085b8) shows 'mem after course set: 369 MiB peak: 382 MiB', the amd64 final log 310 MiB, the 1-worker log 214 MiB; ~230 matches only intermediate builds (newserver 240, stream 227). review_response_verification.json had already called this bullet stale.",
+    "[provenance #6] 'An in-process profile attributes ~400 MiB of transient to the EMBER feature extraction itself' (lines 74-75): no artifact anywhere in reports/review-response-2026-10-21/, reports/v33-2026-10-20/ or the two results JSONs (grep for '400 MiB', 'tracemalloc', 'profil' returns nothing). It is also inconsistent with the later 509 MiB histogram-alone figure.",
+    "[provenance #7] 'each idle worker adds ~100 MiB' (lines 76-77) and 'idle memory drops by ~100 MiB' (line 79): no artifact states this. Derivable values are 129 MiB anon (313 -> 184) or 189 MiB cgroup (398 -> 209).",
+    "[provenance #5] 'anonymous memory reaching ~950 MiB ... with two forked workers (idle ~400 MiB)' (lines 73-74): the cited two-worker memsplit log was overwritten by the one-worker run; the 952/313 MiB figures survive only as a quotation inside review_response_verification.json and commit 3b579be's message, and 'idle ~400 MiB' matches neither the 313 MiB anon idle nor is it labelled as the 398 MiB cgroup idle from container_gate_v33_final_quiet.log. The 949 MiB in container_gate_v33_final_1worker_amd64_quiet.log is a one-worker amd64 run, not this claim."
+   ],
+   "non_blocking_issues": [
+    "[server #7 (5b), major, code] A worker can be lost permanently: _spawn(block=False) gives up after RESPAWN_ATTEMPTS=5 (~3 s of backoff) and nothing ever calls _spawn again; with DF_WORKERS=1 every later request waits its full budget and is answered 1 ('saturated') until restart, even after forking works again (demonstrated by patching _ctx.Process to raise EAGAIN: live 0, then [1,'saturated'] at 1.001 s twice). Trigger needs fork or warm-up to fail five times in ~3 s (EAGAIN/ENOMEM near the 1 GiB limit), so unlikely, but unrecoverable. Line 111's 'Respawn retries with backoff' is true but incomplete. Recommend a follow-up: retry a spawn on the classify path whenever live < n_workers and none is in flight; until then document the bound and that /model shows respawn_failed > 0, live < workers.",
+    "[server #9, minor, code+doc] Keep-alive idle timeout is not what the code/README document: server.py sets the client socket timeout to the remaining budget during the body read and never restores Handler.setup's 60 s, so after a request an idle keep-alive connection is dropped after ~budget (4.0 s default, 4.5 s in the images), not KEEPALIVE_IDLE_SECONDS=60 (second POST after 6 s -> BrokenPipeError; after 2 s -> scored). No grading impact: tools/evaluate.py and dataset/tools/grade_http.py open a new connection per sample. Applies to ensemble_server.py too.",
+    "[server #8, minor, code] A request whose deadline has already passed when it obtains a worker kills the healthy idle worker (counted 'overrun', pid replaced) instead of just answering 1; answer still on time, but with DF_WORKERS=1 the respawn window makes concurrent requests wait. Reachable from server.py only in the microsecond race where the body's last byte lands at the deadline.",
+    "[server #11, info, code] A client that stalls a streamed (>8 MiB) upload makes the parent kill the worker and count it under 'died' (misattributed; costs a fork + warm-up per stall with DF_WORKERS=1). On macOS _close_inherited_sockets is a no-op (/proc absent); irrelevant to the Linux images.",
+    "[server #10, unverified, info] log() writes to stdout before _respond() in do_POST and Defender._finish; if the container's stdout pipe stalls (blocking log driver) the answer could be delayed past the deadline. Not exercised; the json-file driver does not produce it.",
+    "[container #4, minor, doc] The document's 'cgroup peak 603 MiB' is page-cache inflated: its own log shows 'file 172797952' at that moment; an independent re-run of image aedfdc7085b8 measured 435 MiB with 'file 0' and the same anon max (411 vs 410) and idle (185 vs 184). 603 is the conservative figure, but the text should say what it contains.",
+    "[container #11, minor, script+doc] dataset gate script hygiene: container_gate.sh line 2 says '1 CPU, 1 GiB, no network' but docker run passes no --network none (default bridge; and --network none would break -p, so the comment is what is wrong); the 'memory.stat now' line's awk quoting is broken and dumps the whole memory.stat twice (also in the cited container_gate_v33_final_quiet_memsplit.log), so the intended 'anon=... file=...' summary is never produced (the separate 20 ms sampler line is the one that carries the anon figure); PORT=$((19000 + RANDOM % 1000)) can pick ports below 19700.",
+    "[container #12, info] The largest goodware2 input (66,763,664 B) sits 345,200 B under MAX_BODY_BYTES=67,108,864, so no gate exercises the 'oversize' answer path; the document does not mention it.",
+    "[container #6, info] Worker recycling is visible only in /model counters (spawned/recycled), never in the container log, so the gate log alone cannot evidence the recycling claim. Verified live: recycled 0->1->2, worker PID 7->27->41 across two 66.8 MB bodies, benign afterwards scored 0.",
+    "[provenance #8, info, doc] The '509 MiB' histogram figure (line 110) exists only in docstrings (ember_compat.py:50, test_ember_compat_memory.py:3); no profiling log. It is arithmetic-consistent (66,763,664 B x 8 = 509.3 MiB) and the chunked implementation plus tracemalloc-bounded test exist, so acceptable if labelled as derived rather than measured.",
+    "[provenance #9, info, doc] 'AUC within 0.006' (line 21) understates the artifact: reproductions.json finding 4 says the largest AUC error observed is +0.0062.",
+    "[provenance #11, info, doc] 'Emulation is roughly twice as slow as native x86' (line 94) has no native x86 measurement (the same paragraph says so). Observed ratios are emulated-amd64 vs native-arm64: p95 76 vs 40 ms (1.9x), 67 MB file 3.95 vs 2.81 s (1.4x).",
+    "[provenance #10, info, doc] '(course-set files take < 100 ms each)' (line 79) and README 'well under 100 ms' hold natively (max 67 ms memsplit, 60 ms 1-worker) but not under amd64 emulation (max 170 ms and 189 ms in the amd64 gates).",
+    "[provenance #20, info, doc] Residual 'ceiling' wording outside finding 8's listed files: RICHER_FEATURES_ENSEMBLE.md:3 'breaking the ~80% ceiling of the NFS' and :22 'Confirmed: the NFS ceiling was the clues'. Not a contradiction of the response (RICHER was not in its list) but the same claim finding 8 reworded elsewhere.",
+    "[provenance #22, info, code] ember_compat.py:89 `low = bytes(bytez).lower()` still makes a full lowercase copy of the body in the EMBER strings extractor (~67 MB transient on the largest file). The document only claims the command-line tell's copy was removed, so no contradiction; worth a line in the memory section.",
+    "[provenance #13, info, doc] 'built ... at the tip of release/sure-shot-v3.1' is content-true (image sha256sums match the tree and the branch) but the tip commit 39c62b5 was made six minutes after the image build, and any doc-only commit from this round will move the tip again; pin the commit hash in the header."
+   ],
+   "doc_corrections": [
+    "REVIEW_RESPONSE_2026-09-21.md line 25 (finding 9): replace 'Suite: **108 tests** on branch `release/sure-shot-v3.1` (the message of commit 3b579be says 96, which was wrong).' with 'Suite: **103 tests** on branch `release/sure-shot-v3.1` at 39c62b5 (`cd defender_product && .venv/bin/python -I -m unittest discover -s tests -t .` over the 15 tracked test modules: 103 ran, 0 failures); the working tree also holds the untracked v5 file `tests/test_ember2024.py` (5 tests), so a tree run reports 108. The message of commit 3b579be says 96, which was wrong.' (provenance #1)",
+    "defender_product/README.md line 239: change 'tests/                 94 tests incl. sklearn-derived golden vectors, deadline and integrity tests' to 'tests/                 103 tests incl. sklearn-derived golden vectors, deadline, worker and integrity tests' and keep it equal to the branch count. (provenance #2)",
+    "REVIEW_RESPONSE line 23 (finding 7): keep 'test count' in the list only after README.md:239 is fixed; otherwise delete 'test count' from '(numbers, image-vs-code defaults table incl. `DF_WORKERS=1`, switching instructions, test count, single-flight semantics)'. (provenance #2)",
+    "dataset/docs/PAPER_CONCEPTS.md line 97: replace \"We implement the 'train on the attack' recipe (rf_adv, train_nfs_adversarial.py, cited explicitly as the Lucas recipe) and it works on held-out recent_test\" with \"rf_adv (train_nfs_adversarial.py) is random, unguided feature-space augmentation with no model query and no binaries -- the weaker regime Lucas et al. contrast with 'train on the attack' -- and it still moves held-out recent_test\"; change that row's status from PARTIAL to NOT APPLIED (unguided only). Line 67: replace 'rf_adv uses functionality-preserving FEATURE transforms with held-out donors' with 'rf_adv uses synthetic feature-space transforms with held-out donors (realizability intended, unverified)'. Regenerate the file without the 114 truncated '...' cells. Then add PAPER_CONCEPTS.md to the list of relabelled documents in REVIEW_RESPONSE line 19. (provenance #3)",
+    "REVIEW_RESPONSE line 47: replace 'The course set peaks at ~230 MiB.' with 'The course set peaks at 214 MiB cgroup on arm64 with one worker (`container_gate_v33_final_1worker_quiet.log`; 382 MiB in `container_gate_v33_final_quiet_memsplit.log`, which includes page cache) and 310 MiB under amd64 emulation (`container_gate_v33_final_amd64_quiet.log`).' (provenance #4)",
+    "REVIEW_RESPONSE lines 73-74: replace 'anonymous memory reaching ~950 MiB while a 67 MB benign file is scored with two forked workers (idle ~400 MiB)' with 'anonymous memory reaching 952 MiB while a 67 MB benign file is scored with two forked workers (idle anonymous 313 MiB; idle cgroup 398 MiB in `container_gate_v33_final_quiet.log`). The two-worker memsplit log was overwritten by the one-worker run; the 952/313 figures are preserved as the quotation in `dataset/results/review_response_verification.json` and in the message of commit 3b579be.' (provenance #5)",
+    "REVIEW_RESPONSE lines 74-76: delete 'An in-process profile attributes ~400 MiB of transient to the EMBER feature extraction itself on such a file, so' and write 'The byte histogram alone needs 8 bytes per input byte (509 MiB on the 66,763,664-byte file, `defender/ember_compat.py` docstring, bounded by `tests/test_ember_compat_memory.py`), so' -- or attach the profile output to reports/review-response-2026-10-21/ and cite it. (provenance #6, #8)",
+    "REVIEW_RESPONSE lines 76-77 and 79: replace 'each idle worker adds ~100 MiB' with 'each idle worker adds ~130 MiB anonymous (313 -> 184 MiB) / ~190 MiB cgroup (398 -> 209 MiB, `container_gate_v33_final_quiet.log` vs `container_gate_v33_final_1worker_quiet.log`)' and 'idle memory drops by ~100 MiB' with 'idle memory drops accordingly'. (provenance #7)",
+    "REVIEW_RESPONSE line 84: after '**cgroup peak 603 MiB** after them' add '(the same log shows `file 172797952`, i.e. 165 MiB of page cache inside that figure; an independent re-run of image aedfdc7085b8 on 2026-10-22 measured 435 MiB with `file 0`, anon max 411 MiB, idle 185 MiB)'. (container #4)",
+    "REVIEW_RESPONSE line 79: replace '(course-set files take < 100 ms each)' with '(course-set files take at most 67 ms each on native arm64, up to 189 ms under amd64 emulation)'. (provenance #10)",
+    "REVIEW_RESPONSE lines 94-95: replace 'Emulation is roughly twice as slow as native x86 and charges' with 'Emulation ran 1.4-1.9x slower than the native arm64 build (p95 76 vs 40 ms; 67 MB file 3.95 vs 2.81 s) and charges'. (provenance #11)",
+    "REVIEW_RESPONSE line 21: replace 'AUC within 0.006' with 'AUC within 0.0062'. (provenance #9)",
+    "REVIEW_RESPONSE line 111: replace 'Respawn retries with backoff; any exception retires and replaces the worker.' with 'Respawn retries with backoff (RESPAWN_ATTEMPTS = 5, about 3 s); after five consecutive failures the pool stops retrying, and with DF_WORKERS=1 every later request is answered 1 (`saturated`) at its deadline until the server restarts (`/model` then shows `respawn_failed > 0`, `live < workers`). Any exception retires and replaces the worker.' (server #7)",
+    "REVIEW_RESPONSE line 18 / README keep-alive row: add 'the body-read socket timeout is not restored after a request, so an idle keep-alive connection is closed after ~DF_REQUEST_BUDGET_SECONDS (4.5 s in the images), not KEEPALIVE_IDLE_SECONDS = 60; the evaluators open one connection per sample' -- or restore the 60 s timeout in server.py after the body read and leave the README as is. (server #9)",
+    "REVIEW_RESPONSE lines 4-5: replace 'at the tip of `release/sure-shot-v3.1`' with 'at commit 39c62b5 on `release/sure-shot-v3.1` (image sha256sums of defender/*.py and models/rf_adv/{manifest,operating_point}.json match that commit byte for byte)'. (provenance #13)",
+    "REVIEW_RESPONSE line 110: after 'Profiling attributed 509 MiB of it to EMBER's byte histogram' add '(derived: 66,763,664 B x 8 bytes; no profiling log was kept)'; and after 'no lowercase copy of the body in the command-line tell' add '(the EMBER strings extractor, `ember_compat.py:89`, still lowercases the whole body once)'. (provenance #8, #22)",
+    "dataset/tools/container_gate.sh: line 2 comment 'no network' -> 'default bridge network, port published on 127.0.0.1 only'; fix the quoting of the 'memory.stat now' sh -c/awk line so it prints anon= and file= instead of dumping memory.stat twice; change PORT=$((19000 + RANDOM % 1000)) to PORT=$((19700 + RANDOM % 300)). (container #11)",
+    "REVIEW_RESPONSE line 112 (provenance row): append this round's errata once applied: 'second round: test count 108 -> 103 on the branch; README 94 -> 103; PAPER_CONCEPTS.md relabelled; the ~230 / ~400 / ~100 MiB memory figures replaced by logged values.'"
+   ],
+   "summary": "Verdict: do not sign off the response document yet; the code, images and zip are clear. Server verifier (PASS): all five required checks reproduced on the current tree with python -I, in-process and over HTTP (DF_MODEL_DIR=models/rf_adv, thr 0.820932, DF_WORKERS=1): 45 s idle -> (0,'scored') with the same child pid and died 0 (server #1, #2); drip answered 1 at 4.003 s at budget 4.0 (#3); stalled 4-byte upload does not block a concurrent benign, answered 0 in 17 ms (#4); 9 MB body scored with recycled 0->1 and the next request scored (#5); 30 overruns with fd delta 0, one live child, no zombies (#6). Container verifier (PASS): zip sha256 08440fb2... matches, contains defender/workers.py, modules byte-identical to the tree, builds and the from-zip image serves /health, /model (process, 1 worker, budget 4.5) and scores a benign 0 (container #1, #10); gate on aedfdc7085b8 TP=50 FN=0 FP=0 TN=50, p95 42 ms, six 62-67 MB files 2.02-2.90 s all 0, anon max 411 MiB / idle 185 MiB, oom_kill 0 (#2-#4); ten sequential 66.8 MB requests each peaked at 404 MiB anon with no growth (#5); stalled -> 1 at 4.52 s, benign 50 ms later -> 0, 45 s idle -> 0, drip -> 1 at 4.56 s (#7-#9). No regression is still present, no container behaviour contradicts the document, the zip serves. Provenance verifier (FAIL) is what blocks, and only in the documentation: '108 tests on branch release/sure-shot-v3.1' is wrong (branch has 103; 108 counts the untracked v5 test file), README.md:239 still says 94 tests although finding 7 claims it was corrected, PAPER_CONCEPTS.md:97/:67 still assert the Lucas 'train on the attack' recipe and functionality-preserving transforms for rf_adv although finding 3 says 'relabelled throughout' (and the file has 114 truncated table cells), and four memory numbers in 'What remains open' / 'Memory follow-up' (~230 MiB course set, ~400 MiB extraction profile, ~100 MiB per idle worker, idle ~400 MiB with two workers) have no artifact or contradict the final logs. Two code defects found by the server verifier are non-blocking but should be scheduled: a respawn that fails five times is never retried, so with DF_WORKERS=1 the worker is lost until restart (major, unlikely trigger), and keep-alive connections are closed after ~budget instead of 60 s (no effect on the per-connection evaluators). Everything else cited in the document (image ids and ENV, finding 1/2/4/5/6/8 reproduction numbers, recomputed metric table, 4.52/4.51 s probes, cgroup/anon/idle figures in the named logs, five-agent re-verification) ties to a named artifact. Applying the listed doc corrections needs no rebuild or re-package (README and dataset/docs are not in the image or zip); commit them on release/sure-shot-v3.1 and pin the image to commit 39c62b5 in the header, then ship."
+  }
+ ]
+}

@@ -72,7 +72,9 @@ docker build --platform linux/amd64 -t mlsec-defender .
 ## Measured against the stated constraints
 
 Apple M-series host, `docker run -m 1g`, 400 requests over real goodware and
-header-mutated variants of it:
+header-mutated variants of it (measured in September 2026 on the earlier thread-pool server
+and the single-model image; the forked-worker server's figures are in
+[`REVIEW_RESPONSE_2026-09-21.md`](../dataset/docs/REVIEW_RESPONSE_2026-09-21.md)):
 
 | Constraint             | Limit    | Measured                                      |
 |------------------------|----------|-----------------------------------------------|
