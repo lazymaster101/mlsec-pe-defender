@@ -1,0 +1,5 @@
+=== cold build (no cache) from the zip context, timed ===
+build exit=0 in 59 s (limit 300 s; this is local network speed under amd64 emulation, not the platform proxy)
+arch=amd64 user=10001 exposed=map[8080/tcp:{}]
+
+[exited with code 0]

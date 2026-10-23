@@ -1,0 +1,140 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.08kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 158B done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 ...
+
+#5 [ 1/11] FROM docker.io/library/python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+#5 resolve docker.io/library/python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1 0.0s done
+#5 DONE 0.0s
+
+#6 [ 2/11] WORKDIR /app
+#6 CACHED
+
+#4 [internal] load build context
+#4 transferring context: 120.55MB 1.1s done
+#4 DONE 1.1s
+
+#7 [ 3/11] RUN apt-get update  && apt-get install -y --no-install-recommends libgomp1  && rm -rf /var/lib/apt/lists/*
+#7 1.245 Hit:1 http://deb.debian.org/debian trixie InRelease
+#7 1.247 Get:2 http://deb.debian.org/debian trixie-updates InRelease [47.3 kB]
+#7 1.267 Get:3 http://deb.debian.org/debian-security trixie-security InRelease [43.4 kB]
+#7 1.377 Get:4 http://deb.debian.org/debian trixie/main amd64 Packages [9678 kB]
+#7 1.913 Get:5 http://deb.debian.org/debian trixie-updates/main amd64 Packages [720 B]
+#7 1.913 Get:6 http://deb.debian.org/debian-security trixie-security/main amd64 Packages [269 kB]
+#7 2.830 Fetched 10.0 MB in 2s (5217 kB/s)
+#7 2.830 Reading package lists...
+#7 3.564 Reading package lists...
+#7 4.407 Building dependency tree...
+#7 4.586 Reading state information...
+#7 4.887 The following NEW packages will be installed:
+#7 4.888   libgomp1
+#7 5.020 0 upgraded, 1 newly installed, 0 to remove and 3 not upgraded.
+#7 5.020 Need to get 137 kB of archives.
+#7 5.020 After this operation, 377 kB of additional disk space will be used.
+#7 5.020 Get:1 http://deb.debian.org/debian trixie/main amd64 libgomp1 amd64 14.2.0-19 [137 kB]
+#7 5.406 debconf: unable to initialize frontend: Dialog
+#7 5.406 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#7 5.406 debconf: falling back to frontend: Readline
+#7 5.407 debconf: unable to initialize frontend: Readline
+#7 5.407 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC entries checked: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.40.1 /usr/local/share/perl/5.40.1 /usr/lib/x86_64-linux-gnu/perl5/5.40 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.40 /usr/share/perl/5.40 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 8, <STDIN> line 1.)
+#7 5.407 debconf: falling back to frontend: Teletype
+#7 5.512 debconf: unable to initialize frontend: Teletype
+#7 5.512 debconf: (This frontend requires a controlling tty.)
+#7 5.512 debconf: falling back to frontend: Noninteractive
+#7 6.624 Fetched 137 kB in 0s (1238 kB/s)
+#7 6.775 Selecting previously unselected package libgomp1:amd64.
+#7 6.775 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 5660 files and directories currently installed.)
+#7 6.792 Preparing to unpack .../libgomp1_14.2.0-19_amd64.deb ...
+#7 6.799 Unpacking libgomp1:amd64 (14.2.0-19) ...
+#7 6.900 Setting up libgomp1:amd64 (14.2.0-19) ...
+#7 6.908 Processing triggers for libc-bin (2.41-12+deb13u4) ...
+#7 DONE 7.2s
+
+#8 [ 4/11] COPY requirements.ensemble.txt ./
+#8 DONE 0.0s
+
+#9 [ 5/11] RUN pip install --no-cache-dir --only-binary=:all: -r requirements.ensemble.txt  && groupadd -r defender  && useradd --no-log-init -r -g defender -u 10001 defender
+#9 17.60 Collecting numpy==2.2.6 (from -r requirements.ensemble.txt (line 3))
+#9 17.68   Downloading numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (62 kB)
+#9 17.88 Collecting scipy==1.18.1 (from -r requirements.ensemble.txt (line 4))
+#9 17.89   Downloading scipy-1.18.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (62 kB)
+#9 17.99 Collecting scikit-learn==1.9.1 (from -r requirements.ensemble.txt (line 5))
+#9 18.00   Downloading scikit_learn-1.9.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (9.3 kB)
+#9 18.03 Collecting joblib==1.6.0 (from -r requirements.ensemble.txt (line 6))
+#9 18.04   Downloading joblib-1.6.0-py3-none-any.whl.metadata (6.5 kB)
+#9 18.06 Collecting threadpoolctl==3.7.0 (from -r requirements.ensemble.txt (line 7))
+#9 18.07   Downloading threadpoolctl-3.7.0-py3-none-any.whl.metadata (24 kB)
+#9 18.09 Collecting cloudpickle==3.1.2 (from -r requirements.ensemble.txt (line 8))
+#9 18.11   Downloading cloudpickle-3.1.2-py3-none-any.whl.metadata (7.1 kB)
+#9 18.15 Collecting narwhals==2.27.1 (from -r requirements.ensemble.txt (line 9))
+#9 18.16   Downloading narwhals-2.27.1-py3-none-any.whl.metadata (15 kB)
+#9 18.19 Collecting lightgbm==4.7.0 (from -r requirements.ensemble.txt (line 10))
+#9 18.23   Downloading lightgbm-4.7.0-py3-none-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (18 kB)
+#9 18.30 Collecting lief==0.17.0 (from -r requirements.ensemble.txt (line 11))
+#9 18.33   Downloading lief-0.17.0-cp312-cp312-manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+#9 18.39 Collecting mmh3==5.2.0 (from -r requirements.ensemble.txt (line 12))
+#9 18.41   Downloading mmh3-5.2.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (14 kB)
+#9 18.47 Downloading numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (16.5 MB)
+#9 19.19    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.5/16.5 MB 23.3 MB/s eta 0:00:00
+#9 19.21 Downloading scipy-1.18.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (35.3 MB)
+#9 20.38    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 35.3/35.3 MB 30.2 MB/s eta 0:00:00
+#9 20.41 Downloading scikit_learn-1.9.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (9.2 MB)
+#9 20.73    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 9.2/9.2 MB 28.9 MB/s eta 0:00:00
+#9 20.74 Downloading joblib-1.6.0-py3-none-any.whl (306 kB)
+#9 20.77 Downloading threadpoolctl-3.7.0-py3-none-any.whl (26 kB)
+#9 20.79 Downloading cloudpickle-3.1.2-py3-none-any.whl (22 kB)
+#9 20.80 Downloading narwhals-2.27.1-py3-none-any.whl (483 kB)
+#9 20.83 Downloading lightgbm-4.7.0-py3-none-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (3.5 MB)
+#9 20.94    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.5/3.5 MB 33.0 MB/s eta 0:00:00
+#9 20.96 Downloading lief-0.17.0-cp312-cp312-manylinux_2_28_x86_64.whl (3.4 MB)
+#9 21.09    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.4/3.4 MB 26.7 MB/s eta 0:00:00
+#9 21.10 Downloading mmh3-5.2.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (103 kB)
+#9 21.43 Installing collected packages: threadpoolctl, numpy, narwhals, mmh3, lief, cloudpickle, scipy, joblib, scikit-learn, lightgbm
+#9 30.58 Successfully installed cloudpickle-3.1.2 joblib-1.6.0 lief-0.17.0 lightgbm-4.7.0 mmh3-5.2.0 narwhals-2.27.1 numpy-2.2.6 scikit-learn-1.9.1 scipy-1.18.1 threadpoolctl-3.7.0
+#9 30.58 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+#9 30.82 
+#9 30.82 [notice] A new release of pip is available: 25.0.1 -> 26.2.2
+#9 30.82 [notice] To update, run: pip install --upgrade pip
+#9 31.09 useradd warning: defender's uid 10001 is greater than SYS_UID_MAX 999
+#9 DONE 32.0s
+
+#10 [ 6/11] COPY defender/ ./defender/
+#10 DONE 0.2s
+
+#11 [ 7/11] COPY models/rf_adv ./models/rf_adv
+#11 DONE 0.4s
+
+#12 [ 8/11] COPY models/ember_gbdt ./models/ember_gbdt
+#12 DONE 0.4s
+
+#13 [ 9/11] COPY models/ember_ft_v33 ./models/ember_ft_v33
+#13 DONE 0.1s
+
+#14 [10/11] COPY models/fusion_v33.json ./models/fusion_v33.json
+#14 DONE 0.0s
+
+#15 [11/11] COPY LICENSE.upstream ./LICENSE.upstream
+#15 DONE 0.0s
+
+#16 exporting to image
+#16 exporting layers
+#16 exporting layers 15.3s done
+#16 exporting manifest sha256:93e6e552202fd0e669735867c6de57776169db373bbedb1ddc3d9e099d05a938 done
+#16 exporting config sha256:2af7577235719b75da7714903f344680212b92cb394814cf38835af440038724 done
+#16 exporting attestation manifest sha256:30f6f9657b7ee5ad1411eca7bf5dece5045a27f5c1d7c5e6fd9be92eb4c668bd done
+#16 exporting manifest list sha256:6646253c63ed9849c69690d09a17c392b484d2736abd7e6029f7e07996fad0c2 done
+#16 naming to docker.io/library/mlsec-defender:platformcheck done
+#16 DONE 15.4s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/tgvswpkih2wnlk5qxulm497dn

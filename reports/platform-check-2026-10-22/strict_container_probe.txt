@@ -1,0 +1,14 @@
+# 2026-10-22 strict-mode probe of mlsec-defender:v33-fromzip (built from mlsec-defender-submission-v33.zip)
+# docker run -d --read-only --network none -m 1g --cpus 1 ; probes run with `docker exec -i ... python -c` inside the container
+benign 1555952 B (chrome.exe):  status=200 content-type=application/json body={"result": 0} result_is_int=True seconds=0.096
+benign 468992 B (7z.exe):       status=200 content-type=application/json body={"result": 0} result_is_int=True seconds=0.032
+benign 582688 B (firefox.exe):  status=200 content-type=application/json body={"result": 0} result_is_int=True seconds=0.043
+garbage:        status=200 body={"result": 1} seconds=0.013
+random 5 MB:    status=200 body={"result": 1} seconds=0.019
+empty:          status=200 body={"result": 1} seconds=0.001
+MZ+zeros 1 MB:  status=200 body={"result": 1} seconds=0.010
+/model: ensemble-v33 | workers: spawned 1, killed_overrun 0, died 0, recycled 0, respawn_failed 0, live 1, mode process
+counts: benign 3, malicious 4, unparseable 0, overrun 0, saturated 0, slow_upload 0, worker_failed 0, oversize 0
+log: 8 lines, no read-only / traceback / OSError entries; ready after 4.48 s (earlier run this session, same image and flags); uid 10001
+zip: 34 members, 1 Dockerfile (2037 B) at root, 0 members starting with MZ, 0 absolute/parent paths, 45038575 bytes
+sha256 8d3ae43c01031e5bb6536f10b41b803792475013e4e02cca1992d683e7de88b8

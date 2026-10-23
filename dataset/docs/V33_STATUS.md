@@ -13,7 +13,7 @@ v3.3 = v3.2 (`V32_STATUS.md`) **+ the fixes from the independent review of v3.2*
 |---|---|
 | Training hygiene | 38 NanoCore training rows that are near-identical builds of two course NanoCore samples (EMBER-vector L2 < 10,000; the next nearest training row to any course malware is at 29,495) and 2 rows whose hashes belong to the *original* course release are dropped (`train_v31.py --near-dup-l2 10000`). Malware rows 1,705 → 1,665. The fusion fit set is unchanged (349 / 4,497 / 432), so CV numbers stay comparable. |
 | Fail toward detection | A body LIEF cannot parse as a PE is answered `1` (`reason: unparseable`) instead of being ML-scored on EMBER byte features alone. 0 of 13,503 goodware files in our corpora are LIEF-unparseable; 2 malware are, and are now flagged. Regression test in `tests/test_v31.py`. |
-| Reporting | Every number below is tied to a saved artifact; the count of course-set reads is complete (§2). |
+| Reporting | Every number below is tied to a saved artifact; the count of course-set reads is complete (§2; extended 2026-10-22 with the 2026-10-21 re-gates and the 2026-10-22 metrics read). |
 
 ## 1. Data (unchanged from v3.2, counts corrected)
 
@@ -29,7 +29,7 @@ Family overlap with the course set after hygiene: RemusStealer (11 / 1), NanoCor
 Phorpiex (40 course samples) is absent from training. Untagged samples are grouped by import hash
 (30 groups) for grouped CV.
 
-## 2. Every look at the course set on 2026-10-20
+## 2. Every look at the course set (2026-10-20 to 2026-10-22)
 
 | Candidate | Reads | Result |
 |---|---|---|
@@ -37,10 +37,21 @@ Phorpiex (40 course samples) is absent from training. Untagged samples are group
 | A = v3 + pins + tell | in-process | 49/50, 0 FP |
 | B = v3.1 | in-process, arm64 container | 49/50, 0 FP |
 | C = v3.2 | in-process, arm64 container ×2, amd64 container, review's own gate | 50/50, 0 FP |
-| **D = v3.3** | in-process, arm64 container, amd64 container | **50/50, 0 FP** |
+| **D = v3.3** | in-process, arm64 container, amd64 container (2026-10-20); seven container re-gates after the serving-code fixes (2026-10-21, §6); one metrics read of the from-zip image (2026-10-22, below) | **50/50, 0 FP** on every read |
 
 None of these reads chose a threshold, a hyper-parameter or a training sample. The retrain *data*
 (tags) was chosen after seeing what v3.1 missed; that is error analysis and is stated.
+
+**Reads after 2026-10-20 (added 2026-10-22; the model artifacts were untouched by all of them).**
+2026-10-21, seven container gates of rebuilt v3.3 images during the review response (serving code
+only): `reports/review-response-2026-10-21/container_gate_v33_{newserver_contended,stream_contended,
+final_quiet,final_quiet_memsplit,final_amd64_quiet,final_1worker_quiet,final_1worker_amd64_quiet}.log`.
+2026-10-22, one scoring of `mlsec-defender:v33-fromzip` (the image built from the submission zip)
+under `-m 1g --cpus 1 --read-only` with per-sample rows, taken to report per-class metrics:
+`reports/course-metrics-2026-10-22/` (`METRICS.md`, `v33_fromzip_strict_per_sample.jsonl`). All
+eleven recorded v3.3 reads give TP=50 FN=0 FP=0 TN=50: TPR 1.000, FPR 0.000, accuracy 1.000, F1
+1.000 for both classes, macro-F1 1.000. None chose anything; the first read of 2026-10-20 is the
+one that mattered for the ship decision.
 
 ## 3. Gates (criteria from the v4 review; v3 = frozen submission)
 

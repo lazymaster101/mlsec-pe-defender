@@ -1,0 +1,23 @@
+{
+ "set_dir": "/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/csce704-blackbox-validation-100-samples-20261014-corrected",
+ "url": "http://127.0.0.1:19810/",
+ "deadline_s": 5.0,
+ "note": "image=sha256:4548edda77d36e4f66c6c5de16d365e32156cc0144759fd2f899950f84cc4de8; flags=-m 1g --cpus 1 --read-only; port 127.0.0.1:19810",
+ "n": 100,
+ "n_malware": 50,
+ "n_goodware": 50,
+ "sha256_mismatches": 0,
+ "tp": 50,
+ "fn": 0,
+ "fp": 0,
+ "tn": 50,
+ "no_answers": 0,
+ "late": 0,
+ "latency_s": {
+  "p50": 0.0092,
+  "p95": 0.0446,
+  "max": 0.072,
+  "mean": 0.0136
+ },
+ "per_sample_file": "/Users/seshadithyasaravanan/Desktop/CSCE 704/Model/reports/course-metrics-2026-10-22/v33_fromzip_strict_per_sample.jsonl"
+}
